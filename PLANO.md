@@ -49,6 +49,13 @@ Sem schema + APIs da extensão, painel e extensão não conversam. A primeira vi
 - Login IG = sessão do browser + Sync (sem senha no painel)
 - Suite `npm run test:api`
 
+### 2.2 · Worker VPS 24/7 ✅ (código) / deploy Easypanel
+- `worker/` Playwright + Neon (extração + disparo)
+- `docker-compose.yml` na raiz
+- Repo: https://github.com/Levoratoo/levorato-prospect
+- VPS Hostinger KVM 8 ok; API Docker Manager bloqueada no template Easypanel → deploy via Easypanel UI (`DEPLOY_VPS.md`)
+
+
 
 ### 3 · CRM
 - Dashboard, Extrações, Leads (+ import), Mensagens (DM/comment/storie)

@@ -34,8 +34,9 @@ export default async function ExtracoesPage() {
     <>
       <h1 className="page-title">Extrações</h1>
       <p className="page-sub">
-        Enfileire um @ aqui — a extensão faz o resto (precisa estar logado no
-        Instagram no Opera).
+        Enfileire um @ aqui. Com o worker na VPS Hostinger ligado, a extração
+        roda 24/7 mesmo com o PC desligado (precisa ter sincronizado a sessão IG
+        uma vez). Sem worker, a extensão no Opera também processa a fila.
       </p>
 
       <ExtracaoQueueForm />
