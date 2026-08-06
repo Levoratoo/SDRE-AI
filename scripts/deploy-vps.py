@@ -49,8 +49,16 @@ def connect() -> paramiko.SSHClient:
     return client
 
 
+def _redact(s: str) -> str:
+    if GH_TOKEN:
+        s = s.replace(GH_TOKEN, "***")
+    if PASSWORD:
+        s = s.replace(PASSWORD, "***")
+    return s
+
+
 def run(client: paramiko.SSHClient, cmd: str, timeout: int = 600) -> str:
-    print(f"$ {cmd}")
+    print(f"$ {_redact(cmd)}")
     stdin, stdout, stderr = client.exec_command(cmd, timeout=timeout)
     out = stdout.read().decode("utf-8", errors="replace")
     err = stderr.read().decode("utf-8", errors="replace")
