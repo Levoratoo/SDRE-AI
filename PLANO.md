@@ -60,10 +60,11 @@ Sem schema + APIs da extensão, painel e extensão não conversam. A primeira vi
 ### 3 · CRM
 - Dashboard, Extrações, Leads (+ import), Mensagens (DM/comment/storie)
 
-### 4 · Campanhas + disparo
-- UI campanhas (delays, janela, flags)
-- `campanhas_callback` (list_active, next_lote, mark_*)
-- Tab Disparar na extensão
+### 4 · Campanhas + disparo ✅
+- UI Mensagens (templates DM)
+- UI Campanhas + Play/Pausar/Cancelar
+- Worker VPS consome fila `pending` 24/7
+- `campanhas_callback` completo p/ extensão
 
 ### 5 · Paridade
 - Follow / like / comment / storie
