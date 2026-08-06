@@ -1,0 +1,17 @@
+services:
+  prospect-worker:
+    build:
+      context: ./worker
+      dockerfile: Dockerfile
+    container_name: levorato-prospect-worker
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      HEADLESS: ${HEADLESS:-true}
+      POLL_MS: ${POLL_MS:-15000}
+    shm_size: "1gb"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

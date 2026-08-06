@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+    <header class="hd">
+        <div class="hd-brand">
+            <img src="icons/icon32.png" alt="" width="24" height="24">
+            <span>Levorato Prospect</span>
+        </div>
+        <button id="btnOpts" class="ico" title="Configurações" aria-label="Configurações">⚙</button>
+    </header>
+
+    <!-- Sem config -->
+    <section id="viewSemConfig" class="view hidden">
+        <p class="lead">A extensão ainda não foi configurada.</p>
+        <p class="mut">Cole a URL do painel e sua API Key nas configurações.</p>
+        <button class="btn primary" id="btnAbrirOpts">Abrir configurações</button>
+    </section>
+
+    <!-- User box (sempre visível quando logado) -->
+    <div id="userBox" class="userbox hidden">
+        <div class="userbox-nome" id="userNome">—</div>
+        <div class="userbox-email" id="userEmail">—</div>
+    </div>
+
+    <!-- Tabs -->
+    <nav id="tabs" class="tabs hidden">
+        <button class="tab is-active" data-tab="extrair">Extrair</button>
+        <button class="tab" data-tab="disparar">Disparar</button>
+    </nav>
+
+    <!-- ================== TAB EXTRAIR ================== -->
+
+    <section id="tabExtrair" class="tab-content">
+
+        <!-- Aviso: outro processo rodando -->
+        <div id="extBlockedByDispatch" class="warn hidden">
+            <strong>⚠ Disparo em andamento.</strong>
+            Termine ou pause o disparo antes de extrair (compartilham a mesma sessão do IG).
+        </div>
+
+        <!-- Sessão + perfil (view "pronto") -->
+        <div id="extPronto" class="hidden">
+            <div class="block">
+                <div class="block-title">Sessão do Instagram</div>
+                <div class="block-body" id="sessInfo">Verificando…</div>
+                <button class="btn secondary" id="btnSync">Sincronizar sessão</button>
+            </div>
+
+            <div class="block">
+                <div class="block-title">Perfil-alvo</div>
+                <div class="block-body" id="profInfo">
+                    Abra o perfil que quer prospectar no Instagram para poder extrair.
+                </div>
+
+                <div id="warnGrande" class="warn hidden">
+                    <strong>⚠ Perfil grande.</strong> O Instagram limita a captura a apenas os
+                    <strong>~50 seguidores mais recentes</strong> em perfis com muitos seguidores.
+                </div>
+
+                <div id="profActions" class="hidden">
+                    <div class="config">
+                        <div class="config-title">Configurações da extração</div>
+                        <label class="field">
+                            <span class="field-label">Nome da extração</span>
+                            <input type="text" id="extNome" placeholder="ex: seguidores concorrente X">
+                        </label>
+                        <label class="field">
+                            <span class="field-label">
+                                Limite de leads
+                                <span class="field-hint-inline">(vazio = todos)</span>
+                            </span>
+                            <input type="number" id="extLimite" placeholder="ex: 500" min="1" step="1">
+                        </label>
+                        <div class="field-row">
+                            <label class="field">
+                                <span class="field-label">Delay mín (s)</span>
+                                <input type="number" id="extDelayMin" value="2" min="1" max="60" step="0.5">
+                            </label>
+                            <label class="field">
+                                <span class="field-label">Delay máx (s)</span>
+                                <input type="number" id="extDelayMax" value="5" min="2" max="120" step="0.5">
+                            </label>
+                        </div>
+                    </div>
+                    <button class="btn primary" id="btnExtrair">Iniciar extração</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- View "extraindo" -->
+        <div id="extRodando" class="hidden">
+            <div class="run-head">
+                <div class="run-title" id="runTitle">Extraindo…</div>
+                <span class="pill" id="runStatus">rodando</span>
+            </div>
+            <div class="run-stats">
+                <div class="run-stat">
+                    <div class="run-stat-lbl">Capturados</div>
+                    <div class="run-stat-val" id="runCap">0</div>
+                </div>
+                <div class="run-stat">
+                    <div class="run-stat-lbl" id="runMetaLbl">Meta</div>
+                    <div class="run-stat-val" id="runMeta">—</div>
+                </div>
+            </div>
+            <div class="bar"><div class="bar-fill" id="runBar" style="width:0%"></div></div>
+            <div class="mut small" id="runPct">0%</div>
+
+            <div id="runFinished" class="ok-msg hidden">
+                <strong>✓ Extração concluída.</strong>
+                <span id="runFinishedDetail"></span>
+            </div>
+            <div id="runError" class="err hidden"></div>
+
+            <div class="run-actions">
+                <button class="btn primary"   id="btnExtConcluir" style="display:none">Concluir</button>
+                <button class="btn secondary" id="btnExtPausar">Pausar</button>
+                <button class="btn ghost"     id="btnExtRetomar" style="display:none">Retomar</button>
+                <button class="btn danger"    id="btnExtCancelar">Cancelar</button>
+            </div>
+        </div>
+    </section>
+
+    <!-- ================== TAB DISPARAR ================== -->
+
+    <section id="tabDisparar" class="tab-content hidden">
+
+        <!-- Aviso: extração rodando -->
+        <div id="dispBlockedByExtract" class="warn hidden">
+            <strong>⚠ Extração em andamento.</strong>
+            Termine ou pause a extração antes de disparar.
+        </div>
+
+        <!-- View "sem campanhas" -->
+        <div id="dispSemCampanhas" class="hidden">
+            <div class="block-empty">
+                <p><strong>Nenhuma campanha ativa.</strong></p>
+                <p class="mut">
+                    Crie uma campanha no painel e clique em <strong>Iniciar</strong>.
+                    Depois volte aqui para começar o disparo.
+                </p>
+                <button class="btn secondary" id="btnAbrirCampanhas">Abrir campanhas no painel</button>
+                <button class="btn ghost" id="btnRecarregarCampanhas">Recarregar lista</button>
+            </div>
+        </div>
+
+        <!-- Lista de campanhas ativas -->
+        <div id="dispListaCampanhas" class="hidden">
+            <div class="block">
+                <div class="block-title">Campanhas ativas</div>
+                <div id="dispListaBody"></div>
+                <button class="btn ghost btn-small" id="btnRecarregarLista">↻ Recarregar</button>
+            </div>
+
+            <div class="block warn-block">
+                <div class="block-title">⚠ Antes de iniciar</div>
+                <div class="block-body">
+                    <p class="mut small">
+                        O disparo abre uma nova aba do Instagram em segundo plano para cada lead,
+                        navega até o perfil, e envia a mensagem simulando comportamento humano.
+                    </p>
+                    <p class="mut small">
+                        <strong>Não feche o Chrome</strong> enquanto o disparo estiver rodando.
+                        Você pode usar outras abas normalmente.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- View "disparando" -->
+        <div id="dispRodando" class="hidden">
+            <div class="run-head">
+                <div class="run-title" id="dispTitle">Disparando</div>
+                <span class="pill" id="dispStatus">rodando</span>
+            </div>
+
+            <div class="run-stats">
+                <div class="run-stat">
+                    <div class="run-stat-lbl">Enviados</div>
+                    <div class="run-stat-val ok" id="dispEnviados">0</div>
+                </div>
+                <div class="run-stat">
+                    <div class="run-stat-lbl">Erros</div>
+                    <div class="run-stat-val err" id="dispErros">0</div>
+                </div>
+                <div class="run-stat">
+                    <div class="run-stat-lbl">Restam</div>
+                    <div class="run-stat-val" id="dispRestam">—</div>
+                </div>
+            </div>
+
+            <div class="bar"><div class="bar-fill" id="dispBar" style="width:0%"></div></div>
+            <div class="mut small" id="dispPct">0%</div>
+
+            <div id="dispAtual" class="mut small" style="margin-top:6px"></div>
+
+            <div id="dispErrMsg" class="err hidden"></div>
+            <div id="dispOkMsg" class="ok-msg hidden"></div>
+
+            <div class="run-actions">
+                <button class="btn primary"   id="btnDispConcluir" style="display:none">Concluir</button>
+                <button class="btn secondary" id="btnDispPausar">Pausar</button>
+                <button class="btn ghost"     id="btnDispRetomar" style="display:none">Retomar</button>
+                <button class="btn danger"    id="btnDispParar">Parar</button>
+            </div>
+        </div>
+    </section>
+
+    <div id="toast" class="toast hidden"></div>
+
+    <script type="module" src="popup.js"></script>
+</body>
+</html>

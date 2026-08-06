@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Levorato Prospect — Configuração</title>
+    <link rel="stylesheet" href="options.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="wrap">
+        <header class="hd">
+            <img src="icons/icon48.png" alt="" width="48" height="48">
+            <div>
+                <h1>Levorato Prospect</h1>
+                <p class="sub">Configuração da extensão</p>
+            </div>
+        </header>
+
+        <section class="card">
+            <label class="field">
+                <span class="field-label">URL do painel</span>
+                <input type="text" id="panelUrl" placeholder="http://localhost:3000">
+                <span class="field-hint">Sem barra no final. Ex: http://localhost:3000</span>
+            </label>
+
+            <label class="field">
+                <span class="field-label">API Key</span>
+                <input type="text" id="apiKey" placeholder="pik_...">
+                <span class="field-hint">Copie da página <em>Extensão</em> dentro do painel.</span>
+            </label>
+
+            <button class="btn primary" id="btnSalvar">Testar e salvar</button>
+
+            <div id="resultado" class="resultado hidden"></div>
+        </section>
+
+        <section class="card explain">
+            <h2>Como funciona</h2>
+            <ol>
+                <li><strong>URL do painel</strong> = endereço do Levorato Prospect (local ou produção).</li>
+                <li><strong>API Key</strong> = chave única da sua conta no painel.</li>
+                <li>Ao clicar em "Testar e salvar", a extensão valida a chave no painel.</li>
+                <li>Se a chave estiver correta, o nome da sua conta aparece abaixo em verde.</li>
+            </ol>
+        </section>
+    </div>
+
+    <script type="module" src="options.js"></script>
+</body>
+</html>
