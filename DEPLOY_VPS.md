@@ -1,45 +1,43 @@
-# Deploy do worker na VPS Hostinger (Easypanel)
+# Deploy do worker na VPS Hostinger
 
-A VPS `srv1136081` (KVM 8 · 32 GB · Ubuntu + Easypanel) **aguenta** o worker 24/7.  
-A API “Docker Manager” da Hostinger **não** está disponível nesse template — o deploy é pelo **Easypanel**.
+## Status
 
-## Pré-requisitos
+**Worker 24/7 já está rodando** em `31.97.175.147`:
 
-1. Sessão do Instagram sincronizada no painel (extensão → Sincronizar sessão) — grava cookies no Neon.
-2. `DATABASE_URL` do Neon (mesma do painel).
-3. Repo: https://github.com/Levoratoo/levorato-prospect (privado).
+- Path: `/opt/levorato-prospect`
+- Container: `levorato-prospect-worker` (`restart: unless-stopped`)
+- Log esperado: `[worker] Levorato Prospect worker iniciado`
 
-## No Easypanel (recomendado)
+## Redeploy / update
 
-1. Abra o Easypanel da VPS (`http://31.97.175.147:3000` ou o domínio que você configurou).
-2. **+ New Project** → nome `levorato-prospect`.
-3. **App** → tipo **Docker Compose** (ou “App” com Dockerfile).
-4. Conecte o GitHub `Levoratoo/levorato-prospect` branch `master`.
-5. Compose file: `docker-compose.yml` (raiz).
-6. Environment:
-
-```env
-DATABASE_URL=postgresql://neondb_owner:...@.../neondb?sslmode=require
-HEADLESS=true
-POLL_MS=15000
+```bash
+export VPS_PASSWORD='...'   # root da VPS
+export DATABASE_URL='postgresql://...'
+export GH_TOKEN="$(gh auth token)"
+python scripts/deploy-vps.py
 ```
 
-7. Deploy / Enable.
-8. Logs devem mostrar: `[worker] Levorato Prospect worker iniciado`.
+Ou na VPS:
 
-## Teste rápido
+```bash
+cd /opt/levorato-prospect
+git pull
+docker compose up -d --build
+docker compose logs -f
+```
 
-1. Painel → Extrações → enfileire um `@`.
-2. Com sessão IG válida, o worker pega o job sozinho (status `queued` → `running` → `finished`).
-3. PC pode estar desligado.
+## Uso
+
+1. Extensão → **Sincronizar sessão** (grava cookies no Neon).
+2. Painel → Extrações → enfileire um `@`.
+3. Worker na VPS processa sozinho — PC pode dormir.
 
 ## Disparo 24/7
 
-O worker já processa `campaign_dispatches` com status `pending` quando a campanha está `running`.  
-A UI completa de campanhas (Play) é a Fase 4 — o motor no servidor já está pronto.
+Motor pronto para `campaign_dispatches` `pending` com campanha `running`.  
+UI Play = Fase 4.
 
 ## Observações
 
-- Use conta IG descartável.
-- IP de VPS pode ser marcado pelo Instagram — delays altos ajudam.
-- Se a sessão expirar: abra a extensão no Opera → Sincronizar sessão de novo (1x).
+- Conta IG descartável + delays altos.
+- Sessão expirada → sync de novo na extensão.
