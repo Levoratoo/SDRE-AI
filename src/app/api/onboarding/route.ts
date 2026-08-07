@@ -67,7 +67,7 @@ export async function GET() {
     },
     {
       id: "ig_session",
-      label: "Colar sessão do Instagram em Minha Conta",
+      label: "Sincronizar sessão do Instagram (extensão ou Minha Conta)",
       done: Boolean(ig),
       href: "/conta",
       optional: false,

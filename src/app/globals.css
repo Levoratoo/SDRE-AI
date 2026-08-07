@@ -1318,9 +1318,19 @@ a {
   border-bottom: 0;
 }
 
-.onboarding-card {
-  margin-bottom: 16px;
+.ig-sync-primary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-top: 8px;
 }
+
+.ig-sync-manual {
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
+}
+
 
 .onboarding-steps {
   list-style: none;
