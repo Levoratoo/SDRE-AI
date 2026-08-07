@@ -53,6 +53,35 @@ export async function POST(req: Request) {
   return NextResponse.json({ ok: true, mensagem: row });
 }
 
+export async function PATCH(req: Request) {
+  const session = await getSession();
+  if (!session) {
+    return NextResponse.json({ ok: false, erro: "Não autenticado" }, { status: 401 });
+  }
+  const body = (await req.json().catch(() => ({}))) as {
+    id?: string;
+    titulo?: string;
+    texto?: string;
+  };
+  if (!body.id) {
+    return NextResponse.json({ ok: false, erro: "id obrigatório" }, { status: 400 });
+  }
+  const titulo = (body.titulo || "").trim().slice(0, 120);
+  const texto = (body.texto || "").trim();
+  if (!titulo || !texto) {
+    return NextResponse.json({ ok: false, erro: "Título e texto obrigatórios" }, { status: 400 });
+  }
+  const [row] = await db
+    .update(messages)
+    .set({ titulo, texto, atualizadoEm: new Date() })
+    .where(and(eq(messages.id, body.id), eq(messages.userId, session.user.id)))
+    .returning();
+  if (!row) {
+    return NextResponse.json({ ok: false, erro: "Não encontrada" }, { status: 404 });
+  }
+  return NextResponse.json({ ok: true, mensagem: row });
+}
+
 export async function DELETE(req: Request) {
   const session = await getSession();
   if (!session) {

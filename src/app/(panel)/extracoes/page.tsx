@@ -1,5 +1,6 @@
 import { desc, eq } from "drizzle-orm";
 import Link from "next/link";
+import { ExtracaoActions } from "@/components/extracao-actions";
 import { ExtracaoQueueForm } from "@/components/extracao-queue-form";
 import { db } from "@/db";
 import { extractions } from "@/db/schema";
@@ -134,9 +135,12 @@ export default async function ExtracoesPage() {
                       <td>{fmtDate(r.iniciadoEm)}</td>
                       <td>{fmtDate(r.finalizadoEm)}</td>
                       <td>
-                        <Link className="action-pink" href="/leads">
-                          Ver leads
-                        </Link>
+                        <ExtracaoActions
+                          id={r.id}
+                          canDelete={
+                            r.status !== "running" && r.status !== "queued"
+                          }
+                        />
                       </td>
                     </tr>
                   );

@@ -2,7 +2,7 @@
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
 
-type Msg = { id: string; titulo: string; texto: string };
+type Msg = { id: string; titulo: string; texto: string; tipo: string };
 type Campanha = {
   id: string;
   nome: string;
@@ -13,6 +13,12 @@ type Campanha = {
   minDelayMin: number;
   maxDelayMin: number;
   seguir: boolean;
+  comentar: boolean;
+  curtir: boolean;
+  storie: boolean;
+  scheduleStart: string | null;
+  scheduleEnd: string | null;
+  messageIds: string[] | null;
 };
 
 const STATUS: Record<string, string> = {
@@ -23,15 +29,36 @@ const STATUS: Record<string, string> = {
   cancelled: "Cancelada",
 };
 
+const DAYS = [
+  { v: 1, l: "Seg" },
+  { v: 2, l: "Ter" },
+  { v: 3, l: "Qua" },
+  { v: 4, l: "Qui" },
+  { v: 5, l: "Sex" },
+  { v: 6, l: "Sáb" },
+  { v: 0, l: "Dom" },
+];
+
 export function CampanhasClient({ leadsCount }: { leadsCount: number }) {
   const [msgs, setMsgs] = useState<Msg[]>([]);
+  const [comments, setComments] = useState<Msg[]>([]);
+  const [stories, setStories] = useState<Msg[]>([]);
   const [items, setItems] = useState<Campanha[]>([]);
   const [nome, setNome] = useState("");
-  const [messageId, setMessageId] = useState("");
+  const [messageIds, setMessageIds] = useState<string[]>([]);
+  const [commentIds, setCommentIds] = useState<string[]>([]);
+  const [storieIds, setStorieIds] = useState<string[]>([]);
   const [limiteLeads, setLimiteLeads] = useState("100");
   const [minDelay, setMinDelay] = useState("3");
   const [maxDelay, setMaxDelay] = useState("8");
   const [seguir, setSeguir] = useState(false);
+  const [comentar, setComentar] = useState(false);
+  const [curtir, setCurtir] = useState(false);
+  const [storie, setStorie] = useState(false);
+  const [somenteNovos, setSomenteNovos] = useState(true);
+  const [scheduleStart, setScheduleStart] = useState("09:00");
+  const [scheduleEnd, setScheduleEnd] = useState("18:00");
+  const [scheduleDays, setScheduleDays] = useState<number[]>([1, 2, 3, 4, 5]);
   const [loading, setLoading] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -39,15 +66,21 @@ export function CampanhasClient({ leadsCount }: { leadsCount: number }) {
   const [showForm, setShowForm] = useState(false);
 
   const load = useCallback(async () => {
-    const [m, c] = await Promise.all([
+    const [m, c, s, camps] = await Promise.all([
       fetch("/api/mensagens?tipo=dm").then((r) => r.json()),
+      fetch("/api/mensagens?tipo=comment").then((r) => r.json()),
+      fetch("/api/mensagens?tipo=storie").then((r) => r.json()),
       fetch("/api/campanhas").then((r) => r.json()),
     ]);
     if (m.ok) {
       setMsgs(m.mensagens);
-      setMessageId((prev) => prev || m.mensagens[0]?.id || "");
+      setMessageIds((prev) =>
+        prev.length ? prev : m.mensagens[0] ? [m.mensagens[0].id] : [],
+      );
     }
-    if (c.ok) setItems(c.campanhas);
+    if (c.ok) setComments(c.mensagens);
+    if (s.ok) setStories(s.mensagens);
+    if (camps.ok) setItems(camps.campanhas);
   }, []);
 
   useEffect(() => {
@@ -57,6 +90,14 @@ export function CampanhasClient({ leadsCount }: { leadsCount: number }) {
     }, 10000);
     return () => clearInterval(t);
   }, [load]);
+
+  function toggleId(
+    id: string,
+    list: string[],
+    setList: (v: string[]) => void,
+  ) {
+    setList(list.includes(id) ? list.filter((x) => x !== id) : [...list, id]);
+  }
 
   async function onCreate(e: FormEvent) {
     e.preventDefault();
@@ -69,12 +110,22 @@ export function CampanhasClient({ leadsCount }: { leadsCount: number }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           nome,
-          messageId,
+          messageIds,
+          commentIds: comentar ? commentIds : [],
+          storieIds: storie ? storieIds : [],
           allLeads: true,
+          somenteNovos,
           limiteLeads: Number(limiteLeads) || 100,
           minDelayMin: Number(minDelay) || 3,
           maxDelayMin: Number(maxDelay) || 8,
           seguir,
+          comentar,
+          curtir,
+          storie,
+          scheduleStart,
+          scheduleEnd,
+          scheduleTz: "America/Sao_Paulo",
+          scheduleDays,
         }),
       });
       const j = await r.json();
@@ -132,7 +183,7 @@ export function CampanhasClient({ leadsCount }: { leadsCount: number }) {
         <div>
           <h1 className="page-title gradient-text">Campanhas de Direct</h1>
           <p className="page-sub">
-            Crie a fila e aperte Play — o worker na VPS dispara 24/7.
+            Crie a fila e aperte Play — extensão ou worker VPS disparam 24/7.
           </p>
         </div>
         <div className="page-actions">
@@ -158,7 +209,11 @@ export function CampanhasClient({ leadsCount }: { leadsCount: number }) {
           </p>
           {msgs.length === 0 ? (
             <p className="err">
-              Crie uma mensagem em <a className="action-pink" href="/mensagens">Mensagens</a> antes.
+              Crie uma mensagem em{" "}
+              <a className="action-pink" href="/mensagens">
+                Mensagens
+              </a>{" "}
+              antes.
             </p>
           ) : (
             <form onSubmit={onCreate}>
@@ -168,25 +223,28 @@ export function CampanhasClient({ leadsCount }: { leadsCount: number }) {
                   id="nome"
                   value={nome}
                   onChange={(e) => setNome(e.target.value)}
-                  placeholder="ex: Envios Box Talent"
                   required
                 />
               </div>
+
               <div className="field">
-                <label htmlFor="msg">Mensagens</label>
-                <select
-                  id="msg"
-                  value={messageId}
-                  onChange={(e) => setMessageId(e.target.value)}
-                  required
-                >
+                <label>Mensagens DM (rotação aleatória)</label>
+                <div className="check-grid">
                   {msgs.map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {m.titulo}
-                    </option>
+                    <label key={m.id} className="check-item">
+                      <input
+                        type="checkbox"
+                        checked={messageIds.includes(m.id)}
+                        onChange={() =>
+                          toggleId(m.id, messageIds, setMessageIds)
+                        }
+                      />
+                      <span>{m.titulo}</span>
+                    </label>
                   ))}
-                </select>
+                </div>
               </div>
+
               <div className="field">
                 <label htmlFor="limite">Quantidade de leads</label>
                 <input
@@ -198,6 +256,21 @@ export function CampanhasClient({ leadsCount }: { leadsCount: number }) {
                   onChange={(e) => setLimiteLeads(e.target.value)}
                 />
               </div>
+
+              <label className="switch-block">
+                <input
+                  type="checkbox"
+                  checked={somenteNovos}
+                  onChange={(e) => setSomenteNovos(e.target.checked)}
+                />
+                <span>
+                  <strong>Só leads novos</strong>
+                  <span className="muted">
+                    Ignora quem já recebeu DM em campanha anterior.
+                  </span>
+                </span>
+              </label>
+
               <div
                 style={{
                   display: "grid",
@@ -206,9 +279,8 @@ export function CampanhasClient({ leadsCount }: { leadsCount: number }) {
                 }}
               >
                 <div className="field">
-                  <label htmlFor="min">Delay mín (min)</label>
+                  <label>Delay mín (min)</label>
                   <input
-                    id="min"
                     type="number"
                     min={1}
                     value={minDelay}
@@ -216,33 +288,150 @@ export function CampanhasClient({ leadsCount }: { leadsCount: number }) {
                   />
                 </div>
                 <div className="field">
-                  <label htmlFor="max">Delay máx (min)</label>
+                  <label>Delay máx (min)</label>
                   <input
-                    id="max"
                     type="number"
                     min={1}
                     value={maxDelay}
                     onChange={(e) => setMaxDelay(e.target.value)}
                   />
                 </div>
+                <div className="field">
+                  <label>Horário início</label>
+                  <input
+                    type="time"
+                    value={scheduleStart}
+                    onChange={(e) => setScheduleStart(e.target.value)}
+                  />
+                </div>
+                <div className="field">
+                  <label>Horário fim</label>
+                  <input
+                    type="time"
+                    value={scheduleEnd}
+                    onChange={(e) => setScheduleEnd(e.target.value)}
+                  />
+                </div>
               </div>
-              <label className="row" style={{ marginBottom: 14, gap: 8 }}>
+
+              <div className="field">
+                <label>Dias permitidos</label>
+                <div className="check-grid">
+                  {DAYS.map((d) => (
+                    <label key={d.v} className="check-item">
+                      <input
+                        type="checkbox"
+                        checked={scheduleDays.includes(d.v)}
+                        onChange={() =>
+                          setScheduleDays((prev) =>
+                            prev.includes(d.v)
+                              ? prev.filter((x) => x !== d.v)
+                              : [...prev, d.v],
+                          )
+                        }
+                      />
+                      <span>{d.l}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <label className="switch-block">
                 <input
                   type="checkbox"
                   checked={seguir}
                   onChange={(e) => setSeguir(e.target.checked)}
                 />
                 <span>
-                  <strong>SEGUIR PERFIL</strong>
-                  <div className="muted" style={{ fontSize: 13 }}>
-                    Segue o lead após enviar o DM
-                  </div>
+                  <strong>Seguir perfil</strong>
+                  <span className="muted">Após o DM</span>
                 </span>
               </label>
+              <label className="switch-block">
+                <input
+                  type="checkbox"
+                  checked={curtir}
+                  onChange={(e) => setCurtir(e.target.checked)}
+                />
+                <span>
+                  <strong>Curtir último post</strong>
+                </span>
+              </label>
+              <label className="switch-block">
+                <input
+                  type="checkbox"
+                  checked={comentar}
+                  onChange={(e) => setComentar(e.target.checked)}
+                />
+                <span>
+                  <strong>Comentar no post</strong>
+                </span>
+              </label>
+              {comentar ? (
+                <div className="field">
+                  <label>Templates de comentário</label>
+                  {comments.length === 0 ? (
+                    <p className="muted">
+                      Crie em <a href="/comentarios">Comentários</a>.
+                    </p>
+                  ) : (
+                    <div className="check-grid">
+                      {comments.map((m) => (
+                        <label key={m.id} className="check-item">
+                          <input
+                            type="checkbox"
+                            checked={commentIds.includes(m.id)}
+                            onChange={() =>
+                              toggleId(m.id, commentIds, setCommentIds)
+                            }
+                          />
+                          <span>{m.titulo}</span>
+                        </label>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ) : null}
+              <label className="switch-block">
+                <input
+                  type="checkbox"
+                  checked={storie}
+                  onChange={(e) => setStorie(e.target.checked)}
+                />
+                <span>
+                  <strong>Responder story</strong>
+                </span>
+              </label>
+              {storie ? (
+                <div className="field">
+                  <label>Templates de stories</label>
+                  {stories.length === 0 ? (
+                    <p className="muted">
+                      Crie em <a href="/stories">Stories</a>.
+                    </p>
+                  ) : (
+                    <div className="check-grid">
+                      {stories.map((m) => (
+                        <label key={m.id} className="check-item">
+                          <input
+                            type="checkbox"
+                            checked={storieIds.includes(m.id)}
+                            onChange={() =>
+                              toggleId(m.id, storieIds, setStorieIds)
+                            }
+                          />
+                          <span>{m.titulo}</span>
+                        </label>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ) : null}
+
               <button
                 className="btn primary"
                 type="submit"
-                disabled={loading || !messageId}
+                disabled={loading || !messageIds.length}
               >
                 {loading ? "Criando…" : "Salvar campanha"}
               </button>
@@ -275,9 +464,16 @@ export function CampanhasClient({ leadsCount }: { leadsCount: number }) {
                     {STATUS[c.status] || c.status}
                   </span>
                   {c.seguir ? <span className="pill">Follow</span> : null}
+                  {c.curtir ? <span className="pill">Like</span> : null}
+                  {c.comentar ? <span className="pill">Comment</span> : null}
+                  {c.storie ? <span className="pill">Story</span> : null}
                 </div>
                 <div className="muted" style={{ fontSize: 13 }}>
-                  Delays: {c.minDelayMin}–{c.maxDelayMin} min · 1 mensagem
+                  Delays: {c.minDelayMin}–{c.maxDelayMin} min ·{" "}
+                  {(c.messageIds || []).length || 1} DM
+                  {c.scheduleStart && c.scheduleEnd
+                    ? ` · ${c.scheduleStart}–${c.scheduleEnd}`
+                    : ""}
                 </div>
               </div>
               <div className="campaign-metrics">

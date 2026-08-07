@@ -7,6 +7,7 @@ import {
   readJsonBody,
   requireApiUser,
 } from "@/lib/insta-api";
+import { isWithinSchedule } from "@/lib/schedule";
 
 export async function GET(req: Request) {
   const auth = await requireApiUser(req);
@@ -66,6 +67,15 @@ export async function GET(req: Request) {
     if (c.status !== "running") {
       return jsonOk({ executavel: false, motivo: `status_${c.status}` });
     }
+    const win = isWithinSchedule({
+      scheduleStart: c.scheduleStart,
+      scheduleEnd: c.scheduleEnd,
+      scheduleTz: c.scheduleTz,
+      scheduleDays: c.scheduleDays,
+    });
+    if (!win.ok) {
+      return jsonOk({ executavel: false, motivo: win.motivo });
+    }
     return jsonOk({ executavel: true, motivo: null });
   }
 
@@ -81,6 +91,15 @@ export async function GET(req: Request) {
       .limit(1);
     if (!c || c.status !== "running") {
       return jsonOk({ fim_da_fila: true, leads: [] });
+    }
+    const win = isWithinSchedule({
+      scheduleStart: c.scheduleStart,
+      scheduleEnd: c.scheduleEnd,
+      scheduleTz: c.scheduleTz,
+      scheduleDays: c.scheduleDays,
+    });
+    if (!win.ok) {
+      return jsonOk({ fim_da_fila: false, leads: [], aguardar: true, motivo: win.motivo });
     }
     const [d] = await db
       .select()
@@ -114,7 +133,37 @@ export async function GET(req: Request) {
   }
 
   if (action === "stats_erros") {
-    return jsonOk({ erros_por_motivo: [] });
+    const campanhaId = url.searchParams.get("campanha_id");
+    if (!campanhaId) return jsonErro("campanha_id obrigatório");
+    const [c] = await db
+      .select()
+      .from(campaigns)
+      .where(
+        and(eq(campaigns.id, campanhaId), eq(campaigns.userId, auth.user.id)),
+      )
+      .limit(1);
+    if (!c) return jsonErro("Campanha não encontrada", 404);
+
+    const rows = await db
+      .select({
+        motivo: campaignDispatches.erroMensagem,
+        qtd: count(),
+      })
+      .from(campaignDispatches)
+      .where(
+        and(
+          eq(campaignDispatches.campaignId, campanhaId),
+          eq(campaignDispatches.status, "error"),
+        ),
+      )
+      .groupBy(campaignDispatches.erroMensagem);
+
+    return jsonOk({
+      erros_por_motivo: rows.map((r) => ({
+        motivo: r.motivo || "erro",
+        quantidade: Number(r.qtd) || 0,
+      })),
+    });
   }
 
   return jsonOk({ action, note: "ok" });

@@ -1,4 +1,4 @@
-import { and, eq, sql } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import { after, NextResponse } from "next/server";
 import { db } from "@/db";
 import {
@@ -107,12 +107,17 @@ async function processWebhook(
       if (event.message?.is_echo) continue;
       if (senderId === igBusinessId) continue;
 
+      const username = await resolveIgUsername(senderId, accessToken);
+
       if (!row.responderTodos) {
         if (!row.responderProspeccao) continue;
-        const username = await resolveIgUsername(senderId, accessToken);
         if (!username) continue;
         const allowed = await wasProspected(row.userId, username);
         if (!allowed) continue;
+      }
+
+      if (username && (await shouldSkipRapidReply(row.userId, username))) {
+        continue;
       }
 
       const reply = await generateAgentReply({
@@ -170,6 +175,32 @@ async function wasProspected(userId: string, username: string) {
     )
     .limit(1);
   return Boolean(hit);
+}
+
+async function shouldSkipRapidReply(userId: string, username: string) {
+  const [hit] = await db
+    .select({
+      enviadoEm: campaignDispatches.enviadoEm,
+      ignorar: campaigns.ignorarRespRapida,
+      segundos: campaigns.ignorarRespSegundos,
+    })
+    .from(campaignDispatches)
+    .innerJoin(campaigns, eq(campaignDispatches.campaignId, campaigns.id))
+    .where(
+      and(
+        eq(campaigns.userId, userId),
+        eq(campaignDispatches.status, "sent"),
+        eq(campaigns.ignorarRespRapida, true),
+        sql`lower(${campaignDispatches.leadUsername}) = ${username}`,
+      ),
+    )
+    .orderBy(desc(campaignDispatches.enviadoEm))
+    .limit(1);
+
+  if (!hit?.enviadoEm || !hit.ignorar) return false;
+  const windowSec = hit.segundos || 30;
+  const elapsed = (Date.now() - hit.enviadoEm.getTime()) / 1000;
+  return elapsed < windowSec;
 }
 
 async function sendIgMessage(opts: {

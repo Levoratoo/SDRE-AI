@@ -15,6 +15,56 @@ import {
 
 const log = (...args: unknown[]) => console.log("[dispatch]", ...args);
 
+function isWithinSchedule(c: {
+  scheduleStart: string | null;
+  scheduleEnd: string | null;
+  scheduleTz: string | null;
+  scheduleDays: unknown;
+}) {
+  const start = (c.scheduleStart || "").trim();
+  const end = (c.scheduleEnd || "").trim();
+  const days = Array.isArray(c.scheduleDays)
+    ? (c.scheduleDays as number[])
+    : null;
+  if (!start && !end && (!days || !days.length)) return true;
+
+  const tz = c.scheduleTz || "America/Sao_Paulo";
+  try {
+    const parts = new Intl.DateTimeFormat("en-US", {
+      timeZone: tz,
+      weekday: "short",
+      hour: "2-digit",
+      minute: "2-digit",
+      hourCycle: "h23",
+    }).formatToParts(new Date());
+    const wd = parts.find((p) => p.type === "weekday")?.value || "Mon";
+    const map: Record<string, number> = {
+      Sun: 0,
+      Mon: 1,
+      Tue: 2,
+      Wed: 3,
+      Thu: 4,
+      Fri: 5,
+      Sat: 6,
+    };
+    const day = map[wd] ?? 1;
+    if (days?.length && !days.includes(day)) return false;
+    const hour = parts.find((p) => p.type === "hour")?.value || "00";
+    const minute = parts.find((p) => p.type === "minute")?.value || "00";
+    const hm = `${hour.padStart(2, "0")}:${minute.padStart(2, "0")}`;
+    if (start && end) {
+      if (start <= end) {
+        if (hm < start || hm > end) return false;
+      } else if (hm < start && hm > end) {
+        return false;
+      }
+    }
+  } catch {
+    return true;
+  }
+  return true;
+}
+
 /**
  * Processa 1 disparo pendente de campanha running.
  * Requer campanha criada no painel (Fase 4 UI) + sessão IG sync.
@@ -41,6 +91,12 @@ export async function processNextDispatch(): Promise<boolean> {
 
   const { dispatch, campaign } = row;
   log("lead", dispatch.leadUsername, "campanha", campaign.nome);
+
+  if (!isWithinSchedule(campaign)) {
+    log("fora da janela", campaign.nome);
+    await sleep(60_000);
+    return true;
+  }
 
   const [session] = await db
     .select()

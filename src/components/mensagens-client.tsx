@@ -9,22 +9,33 @@ type Msg = {
   tipo: string;
 };
 
-export function MensagensClient() {
+const DEFAULTS: Record<"dm" | "comment" | "storie", string> = {
+  dm: "Oi {primeiro_nome}, tudo bem?",
+  comment: "Conteúdo incrível, {primeiro_nome}! 🔥",
+  storie: "Vi seu storie, {primeiro_nome}!",
+};
+
+export function MensagensClient({
+  tipo = "dm",
+}: {
+  tipo?: "dm" | "comment" | "storie";
+}) {
   const [items, setItems] = useState<Msg[]>([]);
   const [titulo, setTitulo] = useState("");
-  const [texto, setTexto] = useState("Oi {primeiro_nome}, tudo bem?");
+  const [texto, setTexto] = useState(DEFAULTS[tipo]);
+  const [editId, setEditId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
   async function load() {
-    const r = await fetch("/api/mensagens?tipo=dm");
+    const r = await fetch(`/api/mensagens?tipo=${tipo}`);
     const j = await r.json();
     if (j.ok) setItems(j.mensagens);
   }
 
   useEffect(() => {
     load().catch(() => setErr("Falha ao carregar"));
-  }, []);
+  }, [tipo]);
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -32,14 +43,19 @@ export function MensagensClient() {
     setErr(null);
     try {
       const r = await fetch("/api/mensagens", {
-        method: "POST",
+        method: editId ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ titulo, texto, tipo: "dm" }),
+        body: JSON.stringify(
+          editId
+            ? { id: editId, titulo, texto }
+            : { titulo, texto, tipo },
+        ),
       });
       const j = await r.json();
       if (!j.ok) throw new Error(j.erro || "Erro");
       setTitulo("");
-      setTexto("Oi {primeiro_nome}, tudo bem?");
+      setTexto(DEFAULTS[tipo]);
+      setEditId(null);
       await load();
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Erro");
@@ -49,15 +65,28 @@ export function MensagensClient() {
   }
 
   async function remove(id: string) {
-    if (!confirm("Excluir mensagem?")) return;
+    if (!confirm("Excluir?")) return;
     await fetch(`/api/mensagens?id=${id}`, { method: "DELETE" });
     await load();
   }
 
+  function startEdit(m: Msg) {
+    setEditId(m.id);
+    setTitulo(m.titulo);
+    setTexto(m.texto);
+  }
+
+  const title =
+    tipo === "dm"
+      ? "Mensagens DM"
+      : tipo === "comment"
+        ? "Comentários"
+        : "Stories";
+
   return (
     <>
       <div className="card">
-        <h2>Nova mensagem</h2>
+        <h2>{editId ? "Editar" : "Novo"} {title.slice(0, -1).toLowerCase() || "item"}</h2>
         <form onSubmit={onSubmit}>
           <div className="field">
             <label htmlFor="titulo">Título (uso interno)</label>
@@ -65,13 +94,13 @@ export function MensagensClient() {
               id="titulo"
               value={titulo}
               onChange={(e) => setTitulo(e.target.value)}
-              placeholder="ex: cumprimento"
+              placeholder="ex: abordagem"
               required
               maxLength={120}
             />
           </div>
           <div className="field">
-            <label htmlFor="texto">Mensagem</label>
+            <label htmlFor="texto">Texto</label>
             <textarea
               id="texto"
               rows={5}
@@ -80,42 +109,64 @@ export function MensagensClient() {
               required
               maxLength={900}
             />
+            <div className="char-count">
+              Placeholders: {"{nome}"} {"{primeiro_nome}"} {"{username}"} ·{" "}
+              {texto.length}/900
+            </div>
           </div>
-          <div className="char-count">{texto.length} / 900</div>
-          <p className="muted" style={{ marginTop: 0 }}>
-            Placeholders: {"{primeiro_nome}"}, {"{nome}"}, {"{username}"}
-          </p>
           {err ? <p className="err">{err}</p> : null}
-          <button className="btn primary" type="submit" disabled={loading}>
-            {loading ? "Salvando…" : "Salvar"}
-          </button>
+          <div className="row" style={{ gap: 8 }}>
+            <button className="btn primary" type="submit" disabled={loading}>
+              {loading ? "Salvando…" : editId ? "Atualizar" : "Salvar"}
+            </button>
+            {editId ? (
+              <button
+                type="button"
+                className="btn secondary"
+                onClick={() => {
+                  setEditId(null);
+                  setTitulo("");
+                  setTexto(DEFAULTS[tipo]);
+                }}
+              >
+                Cancelar
+              </button>
+            ) : null}
+          </div>
         </form>
       </div>
 
       <div className="card">
-        <h2>Minhas mensagens</h2>
+        <h2>Meus templates</h2>
         {items.length === 0 ? (
-          <p className="muted">Nenhuma mensagem ainda.</p>
+          <p className="muted" style={{ margin: 0 }}>
+            Nenhum template ainda.
+          </p>
         ) : (
           <div className="msg-list">
-            {items.map((m, i) => (
+            {items.map((m) => (
               <div key={m.id} className="msg-item">
-                <div className="msg-item-head">
-                  <div>
-                    <div className="msg-title">
-                      {i + 1}. {m.titulo}
-                    </div>
-                    <p className="msg-body">{m.texto}</p>
-                  </div>
-                  <div className="row" style={{ gap: 12 }}>
-                    <button
-                      type="button"
-                      className="action-danger"
-                      onClick={() => remove(m.id)}
-                    >
-                      Excluir
-                    </button>
-                  </div>
+                <div>
+                  <strong>{m.titulo}</strong>
+                  <p className="muted" style={{ margin: "6px 0 0" }}>
+                    {m.texto}
+                  </p>
+                </div>
+                <div className="row" style={{ gap: 10 }}>
+                  <button
+                    type="button"
+                    className="action-pink"
+                    onClick={() => startEdit(m)}
+                  >
+                    Editar
+                  </button>
+                  <button
+                    type="button"
+                    className="action-danger"
+                    onClick={() => void remove(m.id)}
+                  >
+                    Excluir
+                  </button>
                 </div>
               </div>
             ))}

@@ -3,12 +3,15 @@ import { MensagensClient } from "@/components/mensagens-client";
 export default function MensagensPage() {
   return (
     <>
-      <h1 className="page-title orange-text">Mensagens (DM)</h1>
-      <p className="page-sub">
-        Templates de Direct Message com placeholders {"{primeiro_nome}"},{" "}
-        {"{nome}"}, {"{username}"}.
-      </p>
-      <MensagensClient />
+      <div className="page-head">
+        <div>
+          <h1 className="page-title gradient-text">Mensagens DM</h1>
+          <p className="page-sub">
+            Templates de Direct com placeholders personalizados.
+          </p>
+        </div>
+      </div>
+      <MensagensClient tipo="dm" />
     </>
   );
 }
