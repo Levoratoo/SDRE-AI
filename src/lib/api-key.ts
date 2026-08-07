@@ -1,14 +1,56 @@
-import { createHash, randomBytes } from "crypto";
+import {
+  createCipheriv,
+  createDecipheriv,
+  createHash,
+  randomBytes,
+} from "crypto";
 import { and, eq, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import { apiKeys, user } from "@/db/schema";
 
-export function generateApiKeyPlain(): { plain: string; prefix: string; hash: string } {
+function encryptionKey() {
+  const secret = process.env.BETTER_AUTH_SECRET;
+  if (!secret) throw new Error("BETTER_AUTH_SECRET não configurada");
+  return createHash("sha256").update(secret).digest();
+}
+
+export function encryptApiKey(plain: string): string {
+  const iv = randomBytes(12);
+  const cipher = createCipheriv("aes-256-gcm", encryptionKey(), iv);
+  const enc = Buffer.concat([cipher.update(plain, "utf8"), cipher.final()]);
+  const tag = cipher.getAuthTag();
+  return Buffer.concat([iv, tag, enc]).toString("base64");
+}
+
+export function decryptApiKey(payload: string): string | null {
+  try {
+    const buf = Buffer.from(payload, "base64");
+    if (buf.length < 28) return null;
+    const iv = buf.subarray(0, 12);
+    const tag = buf.subarray(12, 28);
+    const data = buf.subarray(28);
+    const decipher = createDecipheriv("aes-256-gcm", encryptionKey(), iv);
+    decipher.setAuthTag(tag);
+    return Buffer.concat([decipher.update(data), decipher.final()]).toString(
+      "utf8",
+    );
+  } catch {
+    return null;
+  }
+}
+
+export function generateApiKeyPlain(): {
+  plain: string;
+  prefix: string;
+  hash: string;
+  encrypted: string;
+} {
   const raw = randomBytes(24).toString("hex");
   const plain = `pik_${raw}`;
   const prefix = plain.slice(0, 12);
   const hash = hashApiKey(plain);
-  return { plain, prefix, hash };
+  const encrypted = encryptApiKey(plain);
+  return { plain, prefix, hash, encrypted };
 }
 
 export function hashApiKey(plain: string): string {
@@ -16,11 +58,12 @@ export function hashApiKey(plain: string): string {
 }
 
 export async function createApiKeyForUser(userId: string) {
-  const { plain, prefix, hash } = generateApiKeyPlain();
+  const { plain, prefix, hash, encrypted } = generateApiKeyPlain();
   await db.insert(apiKeys).values({
     userId,
     keyPrefix: prefix,
     keyHash: hash,
+    keyEncrypted: encrypted,
     label: "default",
   });
   return plain;
@@ -39,6 +82,7 @@ export async function getActiveApiKeyMeta(userId: string) {
     .select({
       id: apiKeys.id,
       keyPrefix: apiKeys.keyPrefix,
+      keyEncrypted: apiKeys.keyEncrypted,
       createdAt: apiKeys.createdAt,
       lastUsedAt: apiKeys.lastUsedAt,
     })
@@ -46,6 +90,12 @@ export async function getActiveApiKeyMeta(userId: string) {
     .where(and(eq(apiKeys.userId, userId), isNull(apiKeys.revokedAt)))
     .limit(1);
   return rows[0] ?? null;
+}
+
+export async function revealApiKeyForUser(userId: string): Promise<string | null> {
+  const meta = await getActiveApiKeyMeta(userId);
+  if (!meta?.keyEncrypted) return null;
+  return decryptApiKey(meta.keyEncrypted);
 }
 
 export async function resolveUserFromBearer(authHeader: string | null) {

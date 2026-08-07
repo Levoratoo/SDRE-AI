@@ -7,12 +7,14 @@ type KeyMeta = {
   prefix?: string;
   createdAt?: string;
   lastUsedAt?: string | null;
+  canReveal?: boolean;
 };
 
 export function ExtensaoClient() {
   const [meta, setMeta] = useState<KeyMeta | null>(null);
   const [plainKey, setPlainKey] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [revealing, setRevealing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
 
@@ -47,11 +49,34 @@ export function ExtensaoClient() {
       const j = await r.json();
       if (!j.ok) throw new Error(j.erro || "Erro ao gerar chave");
       setPlainKey(j.apiKey);
+      await copy(j.apiKey, "key");
       await loadMeta();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Erro");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function revealAndCopy() {
+    setRevealing(true);
+    setError(null);
+    try {
+      const r = await fetch("/api/extensao/api-key?reveal=1");
+      const j = await r.json();
+      if (!j.ok) {
+        if (j.needsRegenerate) {
+          setError(j.erro);
+          return;
+        }
+        throw new Error(j.erro || "Não foi possível revelar a chave");
+      }
+      setPlainKey(j.apiKey);
+      await copy(j.apiKey, "key");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Erro");
+    } finally {
+      setRevealing(false);
     }
   }
 
@@ -119,9 +144,11 @@ export function ExtensaoClient() {
         {plainKey ? (
           <div className="code-box">
             <div className="ok" style={{ marginBottom: 6 }}>
-              Copie agora — não mostramos de novo.
+              Chave completa
             </div>
-            <div className="mono">{plainKey}</div>
+            <div className="mono" style={{ wordBreak: "break-all" }}>
+              {plainKey}
+            </div>
           </div>
         ) : null}
 
@@ -139,26 +166,50 @@ export function ExtensaoClient() {
             </button>
           ) : (
             <>
-              {plainKey ? (
-                <button
-                  type="button"
-                  className="btn secondary"
-                  onClick={() => copy(plainKey, "key")}
-                >
-                  {copied === "key" ? "Copiado" : "Copiar chave"}
-                </button>
-              ) : null}
+              <button
+                type="button"
+                className="btn primary"
+                disabled={revealing || loading}
+                onClick={() => {
+                  if (plainKey) {
+                    void copy(plainKey, "key");
+                    return;
+                  }
+                  void revealAndCopy();
+                }}
+              >
+                {copied === "key"
+                  ? "Copiado!"
+                  : revealing
+                    ? "Copiando…"
+                    : "Copiar chave completa"}
+              </button>
               <button
                 type="button"
                 className="btn danger"
                 disabled={loading}
-                onClick={() => generate(true)}
+                onClick={() => {
+                  if (
+                    !confirm(
+                      "Gerar nova chave invalida a atual na extensão. Continuar?",
+                    )
+                  ) {
+                    return;
+                  }
+                  void generate(true);
+                }}
               >
                 {loading ? "Gerando…" : "Gerar nova chave"}
               </button>
             </>
           )}
         </div>
+        {meta?.hasKey && meta.canReveal === false ? (
+          <p className="muted" style={{ marginTop: 10 }}>
+            Chave antiga sem cópia salva — clique em <strong>Gerar nova chave</strong>{" "}
+            uma vez; depois o botão de copiar funciona sempre.
+          </p>
+        ) : null}
       </div>
 
       <div className="card">

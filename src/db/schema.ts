@@ -102,6 +102,8 @@ export const apiKeys = pgTable("api_keys", {
     .references(() => user.id, { onDelete: "cascade" }),
   keyPrefix: varchar("key_prefix", { length: 16 }).notNull(),
   keyHash: text("key_hash").notNull(),
+  /** AES-GCM da chave em texto — só o dono autenticado pode revelar/copiar. */
+  keyEncrypted: text("key_encrypted"),
   label: varchar("label", { length: 80 }).default("default"),
   lastUsedAt: timestamp("last_used_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
