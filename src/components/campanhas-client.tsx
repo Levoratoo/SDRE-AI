@@ -449,9 +449,16 @@ export function CampanhasClient({ leadsCount }: { leadsCount: number }) {
 
       <div className="section-head" style={{ marginTop: 8 }}>
         <h2 style={{ margin: 0 }}>Minhas campanhas</h2>
-        <button type="button" className="action-pink" onClick={() => load()}>
-          Atualizar
-        </button>
+        <div className="row" style={{ gap: 10, alignItems: "center" }}>
+          {hasRunning ? (
+            <span className="pill status-running" title="Atualizando ao vivo">
+              Ao vivo
+            </span>
+          ) : null}
+          <button type="button" className="action-pink" onClick={() => load()}>
+            Atualizar
+          </button>
+        </div>
       </div>
 
       {items.length === 0 ? (
