@@ -236,18 +236,28 @@ export const campaignDispatches = pgTable("campaign_dispatches", {
   criadoEm: timestamp("criado_em").notNull().defaultNow(),
 });
 
-export const agentSettings = pgTable("agent_settings", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  userId: text("user_id")
-    .notNull()
-    .references(() => user.id, { onDelete: "cascade" })
-    .unique(),
-  ativo: boolean("ativo").notNull().default(false),
-  verifyToken: text("verify_token"),
-  metaIgBusinessId: text("meta_ig_business_id"),
-  metaAccessToken: text("meta_access_token"),
-  prompt: text("prompt"),
-  responderTodos: boolean("responder_todos").notNull().default(false),
-  responderProspeccao: boolean("responder_prospeccao").notNull().default(true),
-  atualizadoEm: timestamp("atualizado_em").notNull().defaultNow(),
-});
+export const agentSettings = pgTable(
+  "agent_settings",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" })
+      .unique(),
+    ativo: boolean("ativo").notNull().default(false),
+    webhookSecret: text("webhook_secret").notNull(),
+    verifyToken: text("verify_token").notNull(),
+    metaIgBusinessId: text("meta_ig_business_id"),
+    metaAccessToken: text("meta_access_token"),
+    prompt: text("prompt"),
+    responderTodos: boolean("responder_todos").notNull().default(false),
+    responderProspeccao: boolean("responder_prospeccao").notNull().default(true),
+    totalMensagens: integer("total_mensagens").notNull().default(0),
+    ultimaMsgEm: timestamp("ultima_msg_em"),
+    atualizadoEm: timestamp("atualizado_em").notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("agent_settings_webhook_secret_uidx").on(t.webhookSecret),
+    uniqueIndex("agent_settings_verify_token_uidx").on(t.verifyToken),
+  ],
+);
