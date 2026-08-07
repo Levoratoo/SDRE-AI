@@ -1,14 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 type Sessao = {
   igUsername: string | null;
-  igUserPk: string | null;
   syncedAt: string | null;
-  sessionidMasked: string;
-  temCsrf: boolean;
 };
 
 type SyncDoneDetail = {
@@ -16,14 +13,6 @@ type SyncDoneDetail = {
   erro?: string;
   info?: { ig_username?: string };
 };
-
-function fmtDate(iso: string | null) {
-  if (!iso) return "—";
-  return new Intl.DateTimeFormat("pt-BR", {
-    dateStyle: "short",
-    timeStyle: "short",
-  }).format(new Date(iso));
-}
 
 function pingExtension(): Promise<boolean> {
   return new Promise((resolve) => {
@@ -64,12 +53,8 @@ function syncViaExtension(): Promise<SyncDoneDetail> {
 export function IgSessionClient() {
   const [conectado, setConectado] = useState(false);
   const [sessao, setSessao] = useState<Sessao | null>(null);
-  const [cookies, setCookies] = useState("");
-  const [username, setUsername] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [syncingExt, setSyncingExt] = useState(false);
+  const [syncing, setSyncing] = useState(false);
   const [extPresent, setExtPresent] = useState(false);
-  const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -78,11 +63,10 @@ export function IgSessionClient() {
     if (!j.ok) return;
     setConectado(!!j.conectado);
     setSessao(j.sessao);
-    if (j.sessao?.igUsername) setUsername(j.sessao.igUsername);
   }, []);
 
   useEffect(() => {
-    load().catch(() => setErr("Falha ao carregar sessão IG"));
+    load().catch(() => setErr("Não foi possível carregar a conta do Instagram."));
   }, [load]);
 
   useEffect(() => {
@@ -92,92 +76,60 @@ export function IgSessionClient() {
       if (!cancelled) setExtPresent(ok);
     };
     void check();
-    const t = setInterval(() => void check(), 5000);
+    const t = setInterval(() => void check(), 8000);
     return () => {
       cancelled = true;
       clearInterval(t);
     };
   }, []);
 
-  async function onSyncExtension() {
-    setSyncingExt(true);
+  async function onSync() {
+    setSyncing(true);
     setErr(null);
-    setMsg(null);
     try {
       if (!extPresent) {
         const detected = await pingExtension();
         setExtPresent(detected);
         if (!detected) {
           throw new Error(
-            "Extensão não detectada. Instale em Extensão e recarregue esta página.",
+            "Instale a extensão primeiro (menu Extensão) e recarregue esta página.",
           );
         }
       }
       const r = await syncViaExtension();
-      if (!r.ok) throw new Error(r.erro || "Falha ao sincronizar");
-      const ig = r.info?.ig_username;
-      setMsg(
-        ig
-          ? `Sessão sincronizada (@${ig}). A VPS já pode usar esta conta.`
-          : "Sessão sincronizada. A VPS já pode usar esta conta.",
-      );
+      if (!r.ok) throw new Error(r.erro || "Não foi possível sincronizar");
       await load();
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Erro");
     } finally {
-      setSyncingExt(false);
+      setSyncing(false);
     }
   }
 
-  async function onSave(e: FormEvent) {
-    e.preventDefault();
-    setLoading(true);
+  async function onDisconnect() {
+    if (!confirm("Desconectar esta conta do Instagram?")) return;
+    setSyncing(true);
     setErr(null);
-    setMsg(null);
-    try {
-      const r = await fetch("/api/sessao/ig", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          cookies,
-          username: username || undefined,
-          userAgent: navigator.userAgent,
-        }),
-      });
-      const j = await r.json();
-      if (!j.ok) throw new Error(j.erro || "Falha ao salvar");
-      setCookies("");
-      setMsg("Sessão salva manualmente.");
-      await load();
-    } catch (e) {
-      setErr(e instanceof Error ? e.message : "Erro");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function onClear() {
-    if (!confirm("Remover sessão do Instagram deste painel?")) return;
-    setLoading(true);
-    setErr(null);
-    setMsg(null);
     try {
       const r = await fetch("/api/sessao/ig", { method: "DELETE" });
       const j = await r.json();
       if (!j.ok) throw new Error(j.erro || "Erro");
-      setMsg("Sessão removida.");
       await load();
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Erro");
     } finally {
-      setLoading(false);
+      setSyncing(false);
     }
   }
 
+  const handle = sessao?.igUsername
+    ? `@${sessao.igUsername.replace(/^@/, "")}`
+    : null;
+
   return (
-    <div className="card" style={{ marginBottom: 16 }}>
+    <div className="card ig-account-card" style={{ marginBottom: 16 }}>
       <div className="section-head">
-        <h2 style={{ margin: 0 }}>Sessão Instagram</h2>
+        <h2 style={{ margin: 0 }}>Instagram na jornada</h2>
         {conectado ? (
           <span className="pill status-finished">Conectado</span>
         ) : (
@@ -185,111 +137,59 @@ export function IgSessionClient() {
         )}
       </div>
 
-      <p className="muted" style={{ marginTop: 0 }}>
-        Com a extensão instalada, basta estar logado no Instagram no navegador e
-        clicar em <strong>Sincronizar com extensão</strong>. A sessão vai direto
-        para a VPS — sem copiar cookies.
-      </p>
-
-      {conectado && sessao ? (
-        <div
-          className="muted"
-          style={{
-            marginBottom: 14,
-            fontSize: 13,
-            display: "grid",
-            gap: 4,
-          }}
-        >
-          <div>
-            Conta:{" "}
-            <span className="mono" style={{ color: "#fff" }}>
-              {sessao.igUsername ? `@${sessao.igUsername}` : "—"}
-            </span>
+      <div className="ig-account-hero">
+        {conectado && handle ? (
+          <div className="ig-account-handle">{handle}</div>
+        ) : conectado ? (
+          <div className="ig-account-handle muted-handle">Conta conectada</div>
+        ) : (
+          <div className="ig-account-empty">
+            Nenhuma conta do Instagram vinculada ainda.
           </div>
-          <div>
-            sessionid: <span className="mono">{sessao.sessionidMasked}</span>
-          </div>
-          <div>Última sync: {fmtDate(sessao.syncedAt)}</div>
-        </div>
-      ) : null}
+        )}
+        <p className="muted ig-account-hint">
+          {conectado
+            ? "Esta é a conta que a VPS usa para extrair e disparar."
+            : "Conecte a conta que está logada no Chrome para começar."}
+        </p>
+      </div>
 
       {err ? <div className="alert danger">{err}</div> : null}
-      {msg ? <p className="ok">{msg}</p> : null}
 
-      <div className="ig-sync-primary">
+      <div className="ig-account-actions">
         <button
           type="button"
           className="btn primary"
-          disabled={syncingExt}
-          onClick={() => void onSyncExtension()}
+          disabled={syncing}
+          onClick={() => void onSync()}
         >
-          {syncingExt ? "Sincronizando…" : "Sincronizar com extensão"}
+          {syncing
+            ? "Sincronizando…"
+            : conectado
+              ? "Trocar / atualizar conta"
+              : "Conectar conta do navegador"}
         </button>
-        {extPresent ? (
-          <span className="muted" style={{ fontSize: 13 }}>
-            Extensão detectada nesta página.
-          </span>
-        ) : (
-          <span className="muted" style={{ fontSize: 13 }}>
-            Extensão não detectada —{" "}
-            <Link className="link-accent" href="/extensao">
-              instalar e configurar
-            </Link>
-          </span>
-        )}
+        {conectado ? (
+          <button
+            type="button"
+            className="btn ghost"
+            disabled={syncing}
+            onClick={() => void onDisconnect()}
+          >
+            Desconectar
+          </button>
+        ) : null}
       </div>
 
-      <p className="muted" style={{ fontSize: 12, margin: "10px 0 0" }}>
-        Requisitos: Instagram aberto e logado no Chrome + extensão Levorato
-        Prospect na mesma conta do painel.
-      </p>
-
-      <details className="ig-sync-manual" style={{ marginTop: 18 }}>
-        <summary className="muted" style={{ cursor: "pointer" }}>
-          Colar cookies manualmente (alternativa)
-        </summary>
-        <form onSubmit={onSave} style={{ marginTop: 12 }}>
-          <div className="field">
-            <label htmlFor="ig-user">@ do Instagram (opcional)</label>
-            <input
-              id="ig-user"
-              placeholder="@sua_conta"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-            />
-          </div>
-          <div className="field">
-            <label htmlFor="ig-cookies">Cookies / sessionid</label>
-            <textarea
-              id="ig-cookies"
-              rows={4}
-              placeholder={
-                "sessionid=...\ncsrftoken=...\nds_user_id=...\n\nou só o valor do sessionid"
-              }
-              value={cookies}
-              onChange={(e) => setCookies(e.target.value)}
-              required
-              style={{ fontFamily: "var(--font-mono, monospace)", fontSize: 13 }}
-            />
-          </div>
-          <div className="row" style={{ gap: 10 }}>
-            <button type="submit" className="btn secondary" disabled={loading}>
-              {loading ? "Salvando…" : "Salvar manualmente"}
-            </button>
-            {conectado ? (
-              <button
-                type="button"
-                className="btn ghost"
-                disabled={loading}
-                onClick={() => void onClear()}
-              >
-                Remover
-              </button>
-            ) : null}
-          </div>
-        </form>
-      </details>
+      {!extPresent ? (
+        <p className="muted" style={{ fontSize: 13, marginTop: 12, marginBottom: 0 }}>
+          Precisa da extensão no Chrome —{" "}
+          <Link className="link-accent" href="/extensao">
+            baixar e instalar
+          </Link>
+          . Depois, abra instagram.com logado e clique no botão acima.
+        </p>
+      ) : null}
     </div>
   );
 }

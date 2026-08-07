@@ -9,8 +9,7 @@ export default async function ContaPage() {
     <>
       <h1 className="page-title gradient-text">Minha Conta</h1>
       <p className="page-sub">
-        Dados de acesso e sessão do Instagram para a VPS (extensão ou colagem
-        manual).
+        Conta do Instagram usada na prospecção e seus dados de acesso.
       </p>
       <IgSessionClient />
       <ContaClient email={session.user.email} initialName={session.user.name} />

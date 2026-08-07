@@ -1331,6 +1331,44 @@ a {
   padding-top: 12px;
 }
 
+.ig-account-card {
+  border-color: rgba(236, 72, 153, 0.2);
+}
+
+.ig-account-hero {
+  margin: 8px 0 16px;
+}
+
+.ig-account-handle {
+  font-size: 2rem;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  color: #fff;
+  line-height: 1.2;
+}
+
+.ig-account-handle.muted-handle {
+  font-size: 1.25rem;
+  color: var(--muted);
+}
+
+.ig-account-empty {
+  font-size: 1.05rem;
+  color: var(--muted);
+}
+
+.ig-account-hint {
+  margin: 8px 0 0;
+  font-size: 0.9rem;
+}
+
+.ig-account-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
 .ext-download-card {
   border-color: rgba(236, 72, 153, 0.25);
 }

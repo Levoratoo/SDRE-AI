@@ -67,7 +67,7 @@ export async function GET() {
     },
     {
       id: "ig_session",
-      label: "Sincronizar sessão do Instagram (extensão ou Minha Conta)",
+      label: "Conectar Instagram em Minha Conta",
       done: Boolean(ig),
       href: "/conta",
       optional: false,
