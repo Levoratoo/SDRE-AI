@@ -3,12 +3,9 @@ import type { igSessions } from "./db";
 
 export type IgSession = typeof igSessions.$inferSelect;
 
-const DEFAULT_UA =
-  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36";
-
 export type IgProfile = {
+  pk: string;
   username: string;
-  pk: number;
   full_name: string;
   followers_count: number;
   is_private: boolean;
@@ -17,7 +14,7 @@ export type IgProfile = {
 };
 
 export type IgFollower = {
-  pk: number;
+  pk: string;
   username: string;
   full_name: string;
   is_private: boolean;
@@ -25,193 +22,137 @@ export type IgFollower = {
   is_business: boolean;
 };
 
-/**
- * page.evaluate com source string — o tsx/esbuild injeta __name em arrow
- * functions e isso quebra no browser (ReferenceError: __name is not defined).
- */
-async function evalInPage<T>(page: Page, source: string, arg?: unknown): Promise<T> {
-  if (arguments.length < 3) {
-    return page.evaluate(source) as Promise<T>;
-  }
-  return page.evaluate(source, arg) as Promise<T>;
-}
-
 export async function openIgSession(session: IgSession): Promise<{
   browser: Browser;
   context: BrowserContext;
   page: Page;
 }> {
-  const headless = process.env.HEADLESS !== "false";
   const browser = await chromium.launch({
-    headless,
-    args: ["--disable-blink-features=AutomationControlled", "--no-sandbox"],
+    headless: true,
+    args: ["--disable-blink-features=AutomationControlled"],
   });
-
   const context = await browser.newContext({
-    userAgent: session.userAgent || DEFAULT_UA,
-    locale: "pt-BR",
+    userAgent:
+      session.userAgent ||
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
     viewport: { width: 1280, height: 800 },
   });
 
   const cookies = [
-    { name: "sessionid", value: session.sessionid },
-    session.csrftoken ? { name: "csrftoken", value: session.csrftoken } : null,
-    session.dsUserId ? { name: "ds_user_id", value: session.dsUserId } : null,
-    session.mid ? { name: "mid", value: session.mid } : null,
-    session.igDid ? { name: "ig_did", value: session.igDid } : null,
-    session.rur ? { name: "rur", value: session.rur } : null,
-  ]
-    .filter(Boolean)
-    .map((c) => ({
-      name: (c as { name: string; value: string }).name,
-      value: (c as { name: string; value: string }).value,
+    {
+      name: "sessionid",
+      value: session.sessionid,
       domain: ".instagram.com",
       path: "/",
-    }));
-
+      httpOnly: true,
+      secure: true,
+    },
+  ];
+  if (session.csrftoken) {
+    cookies.push({
+      name: "csrftoken",
+      value: session.csrftoken,
+      domain: ".instagram.com",
+      path: "/",
+      httpOnly: false,
+      secure: true,
+    } as (typeof cookies)[0]);
+  }
   await context.addCookies(cookies);
   const page = await context.newPage();
-  await page.goto("https://www.instagram.com/", {
+  return { browser, context, page };
+}
+
+/** Avalia JS no browser sem o helper __name do tsx (bug conhecido). */
+async function evalInPage<T>(page: Page, fnBody: string, arg?: unknown): Promise<T> {
+  if (arg === undefined) {
+    return page.evaluate(`(${fnBody})()`) as Promise<T>;
+  }
+  return page.evaluate(`(${fnBody})(${JSON.stringify(arg)})`) as Promise<T>;
+}
+
+export async function fetchProfile(page: Page, username: string): Promise<IgProfile> {
+  await page.goto(`https://www.instagram.com/${encodeURIComponent(username)}/`, {
     waitUntil: "domcontentloaded",
     timeout: 60000,
   });
   await page.waitForTimeout(2000);
-
-  const url = page.url();
-  if (/\/accounts\/login|\/challenge\//i.test(url)) {
-    await browser.close();
-    throw new Error("sessao_ig_invalida_ou_challenge");
-  }
-
-  return { browser, context, page };
-}
-
-const FETCH_PROFILE_SRC = `async (u) => {
-  const getCookie = (name) => {
-    const m = document.cookie.match(new RegExp("(^|; )" + name + "=([^;]+)"));
-    return m ? decodeURIComponent(m[2]) : "";
-  };
-  const csrf = getCookie("csrftoken");
-  const headers = {
-    "X-IG-App-ID": "936619743392459",
-    "X-ASBD-ID": "129477",
-    "X-Requested-With": "XMLHttpRequest",
-    "X-CSRFToken": csrf,
-    Accept: "*/*",
-  };
-  const r = await fetch(
-    "/api/v1/users/web_profile_info/?username=" + encodeURIComponent(u),
-    { headers: headers, credentials: "include" },
-  );
-  if (!r.ok) return { __error: "HTTP " + r.status };
-  const j = await r.json();
-  const user = j && j.data && j.data.user;
-  if (!user || !user.id) return { __error: "sem_user" };
+  const data = await page.evaluate(async (u) => {
+    const r = await fetch(
+      `/api/v1/users/web_profile_info/?username=${encodeURIComponent(u)}`,
+      { credentials: "include", headers: { "X-IG-App-ID": "936619743392459" } },
+    );
+    if (!r.ok) throw new Error("profile_http_" + r.status);
+    return r.json();
+  }, username);
+  const user = data?.data?.user;
+  if (!user) throw new Error("profile_not_found");
   return {
+    pk: String(user.id),
     username: user.username,
-    pk: Number(user.id),
     full_name: user.full_name || "",
-    followers_count: (user.edge_followed_by && user.edge_followed_by.count) || user.follower_count || 0,
+    followers_count:
+      (user.edge_followed_by && user.edge_followed_by.count) ||
+      user.follower_count ||
+      0,
     is_private: !!user.is_private,
     is_verified: !!user.is_verified,
-    is_business: !!(user.is_business_account || user.is_business),
+    is_business: !!user.is_business_account,
   };
-}`;
-
-export async function fetchProfile(page: Page, username: string): Promise<IgProfile> {
-  const result = await evalInPage<{ __error?: string } & Partial<IgProfile>>(
-    page,
-    FETCH_PROFILE_SRC,
-    username,
-  );
-
-  if (result.__error) {
-    throw new Error("perfil: " + result.__error);
-  }
-  return result as IgProfile;
 }
-
-const FETCH_FOLLOWERS_SRC = `async ({ pkParam, maxIdParam }) => {
-  const getCookie = (name) => {
-    const m = document.cookie.match(new RegExp("(^|; )" + name + "=([^;]+)"));
-    return m ? decodeURIComponent(m[2]) : "";
-  };
-  const csrf = getCookie("csrftoken");
-  const params = new URLSearchParams({
-    count: "50",
-    search_surface: "follow_list_page",
-  });
-  if (maxIdParam) params.append("max_id", maxIdParam);
-  const r = await fetch(
-    "/api/v1/friendships/" + pkParam + "/followers/?" + params.toString(),
-    {
-      headers: {
-        "X-IG-App-ID": "936619743392459",
-        "X-ASBD-ID": "129477",
-        "X-Requested-With": "XMLHttpRequest",
-        "X-CSRFToken": csrf,
-      },
-      credentials: "include",
-    },
-  );
-  if (r.status === 401 || r.status === 403) return { __error: "AUTH" };
-  if (r.status === 429) return { __error: "RATE" };
-  if (!r.ok) return { __error: "HTTP:" + r.status };
-  const j = await r.json();
-  return {
-    users: (j.users || []).map((u) => ({
-      pk: Number(u.pk || u.id),
-      username: u.username,
-      full_name: u.full_name || "",
-      is_private: !!u.is_private,
-      is_verified: !!u.is_verified,
-      is_business: !!u.is_business,
-    })),
-    next_max_id: j.next_max_id || null,
-  };
-}`;
 
 export async function fetchFollowersPage(
   page: Page,
-  pk: number,
+  pk: string,
   maxId: string | null,
 ): Promise<{ users: IgFollower[]; next_max_id: string | null }> {
-  const result = await evalInPage<
-    | { __error: string }
-    | { users: IgFollower[]; next_max_id: string | null }
-  >(page, FETCH_FOLLOWERS_SRC, { pkParam: pk, maxIdParam: maxId });
+  const pkParam = encodeURIComponent(pk);
+  const result = await page.evaluate(
+    async ({ pkParam, maxId }) => {
+      const params = new URLSearchParams({
+        count: "50",
+        search_surface: "follow_list_page",
+      });
+      if (maxId) params.set("max_id", maxId);
+      const r = await fetch(
+        "/api/v1/friendships/" + pkParam + "/followers/?" + params.toString(),
+        {
+          credentials: "include",
+          headers: { "X-IG-App-ID": "936619743392459" },
+        },
+      );
+      if (!r.ok) throw new Error("followers_http_" + r.status);
+      return r.json();
+    },
+    { pkParam, maxId },
+  );
 
-  if ("__error" in result && result.__error) {
-    const code = result.__error;
-    const err = new Error(code) as Error & { code?: string };
-    err.code = code.startsWith("RATE")
-      ? "RATE"
-      : code.startsWith("AUTH")
-        ? "AUTH"
-        : "HTTP";
-    throw err;
-  }
-  return result as { users: IgFollower[]; next_max_id: string | null };
+  const users = (result.users || []).map((u: Record<string, unknown>) => ({
+    pk: String(u.pk || u.id),
+    username: String(u.username || ""),
+    full_name: String(u.full_name || ""),
+    is_private: !!u.is_private,
+    is_verified: !!u.is_verified,
+    is_business: !!u.is_business,
+  }));
+  return {
+    users,
+    next_max_id: result.next_max_id ? String(result.next_max_id) : null,
+  };
 }
 
 const CLICK_DM_SRC = `() => {
   const nodes = Array.from(document.querySelectorAll("button, div[role='button'], a"));
-  const match = nodes.find((el) =>
-    /^(enviar mensagem|mensagem|message|send message)$/i.test(
-      (el.textContent || "").trim(),
-    ),
+  const direct = nodes.find((el) =>
+    /^(enviar mensagem|send message|mensagem)$/i.test((el.textContent || "").trim()),
   );
-  if (match) {
-    match.click();
-    return "direct";
-  }
-  const more = nodes.find((el) => {
-    const label = el.getAttribute("aria-label") || "";
-    return /opções|options|mais|more/i.test(label) || (el.textContent || "").trim() === "···";
-  });
-  if (more) {
-    more.click();
-    return "menu";
+  if (direct) { direct.click(); return "direct"; }
+  const opts = Array.from(document.querySelectorAll("svg[aria-label]")).find((svg) =>
+    /^(options|more options|mais opções|opções|more)$/i.test(svg.getAttribute("aria-label") || ""),
+  );
+  if (opts) {
+    const btn = opts.closest("button, [role='button'], a");
+    if (btn) { btn.click(); return "menu"; }
   }
   return null;
 }`;
@@ -228,13 +169,36 @@ const CLICK_DM_MENU_SRC = `() => {
 
 const CLICK_FOLLOW_SRC = `() => {
   const nodes = Array.from(document.querySelectorAll("button"));
-  const btn = nodes.find((b) => /^(seguir|follow)$/i.test((b.textContent || "").trim()));
+  const ja = nodes.find((b) => /^(seguindo|following|solicitado|requested)$/i.test((b.textContent || "").trim()));
+  if (ja) return "already";
+  const btn = nodes.find((b) => /^(seguir|follow|seguir de volta|follow back)$/i.test((b.textContent || "").trim()));
   if (!btn) return false;
   btn.click();
   return true;
 }`;
 
-/** Envia DM abrindo o perfil e usando o botão de mensagem (DOM). */
+async function typeLikeHuman(page: Page, text: string) {
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i]!;
+    await page.keyboard.type(ch, { delay: 0 });
+    let delay = 45 + Math.random() * 90;
+    if (ch === " ") delay += 80 + Math.random() * 160;
+    if (/[.,!?;:]/.test(ch)) delay += 120 + Math.random() * 220;
+    if (i > 0 && i % (12 + Math.floor(Math.random() * 10)) === 0) {
+      delay += 250 + Math.random() * 450;
+    }
+    await page.waitForTimeout(delay);
+  }
+}
+
+async function closeDirectChat(page: Page) {
+  for (let i = 0; i < 3; i++) {
+    await page.keyboard.press("Escape");
+    await page.waitForTimeout(350);
+  }
+}
+
+/** Envia DM: abre perfil → mensagem → digita como humano → envia → fecha chat. */
 export async function sendDm(page: Page, username: string, message: string) {
   await page.goto(`https://www.instagram.com/${encodeURIComponent(username)}/`, {
     waitUntil: "domcontentloaded",
@@ -257,25 +221,36 @@ export async function sendDm(page: Page, username: string, message: string) {
   }
 
   await page.waitForTimeout(2000);
-  const box = page.locator('div[role="textbox"], textarea').first();
+  const box = page.locator('div[role="textbox"], textarea, div[contenteditable="true"]').first();
   await box.waitFor({ timeout: 15000 });
   await box.click();
-  await page.keyboard.type(message, { delay: 35 });
-  await page.waitForTimeout(500);
+  await page.waitForTimeout(600 + Math.random() * 400);
+  await typeLikeHuman(page, message);
+  await page.waitForTimeout(700 + Math.random() * 500);
   await page.keyboard.press("Enter");
-  await page.waitForTimeout(1500);
+  await page.waitForTimeout(1200 + Math.random() * 800);
+  await closeDirectChat(page);
+  await page.waitForTimeout(800);
   return true;
 }
 
 export async function followProfile(page: Page, username: string) {
-  await page.goto(`https://www.instagram.com/${encodeURIComponent(username)}/`, {
-    waitUntil: "domcontentloaded",
-    timeout: 60000,
-  });
-  await page.waitForTimeout(2000);
-  const ok = await evalInPage<boolean>(page, CLICK_FOLLOW_SRC);
+  // Garante que estamos no perfil (não no chat)
+  if (!page.url().includes(`/${username}`)) {
+    await page.goto(`https://www.instagram.com/${encodeURIComponent(username)}/`, {
+      waitUntil: "domcontentloaded",
+      timeout: 60000,
+    });
+    await page.waitForTimeout(2000);
+  } else {
+    await closeDirectChat(page);
+    await page.waitForTimeout(800);
+  }
+
+  const result = await evalInPage<true | false | "already">(page, CLICK_FOLLOW_SRC);
   await page.waitForTimeout(1500);
-  return ok;
+  if (result === "already") return true;
+  return !!result;
 }
 
 export function sleep(ms: number) {

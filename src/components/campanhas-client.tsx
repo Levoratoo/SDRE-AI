@@ -51,7 +51,7 @@ export function CampanhasClient({ leadsCount }: { leadsCount: number }) {
   const [limiteLeads, setLimiteLeads] = useState("100");
   const [minDelay, setMinDelay] = useState("3");
   const [maxDelay, setMaxDelay] = useState("8");
-  const [seguir, setSeguir] = useState(false);
+  const [seguir, setSeguir] = useState(true);
   const [comentar, setComentar] = useState(false);
   const [curtir, setCurtir] = useState(false);
   const [storie, setStorie] = useState(false);

@@ -1,5 +1,6 @@
 import {
   boolean,
+  index,
   integer,
   jsonb,
   pgEnum,
@@ -235,6 +236,23 @@ export const campaignDispatches = pgTable("campaign_dispatches", {
   enviadoEm: timestamp("enviado_em"),
   criadoEm: timestamp("criado_em").notNull().defaultNow(),
 });
+
+/** Histórico de conversa do Agente IA (multi-turno por IGSID). */
+export const agentMessages = pgTable(
+  "agent_messages",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    igsid: text("igsid").notNull(),
+    username: varchar("username", { length: 120 }),
+    role: varchar("role", { length: 20 }).notNull(), // user | assistant
+    content: text("content").notNull(),
+    criadoEm: timestamp("criado_em").notNull().defaultNow(),
+  },
+  (t) => [index("agent_messages_user_igsid_idx").on(t.userId, t.igsid)],
+);
 
 export const agentSettings = pgTable(
   "agent_settings",

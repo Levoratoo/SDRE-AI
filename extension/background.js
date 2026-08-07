@@ -627,16 +627,23 @@ async function _runDispIterationInner() {
     scheduleDispNext(waitMs);
 }
 
-/** Abre uma aba, executa DM + follow + storie + like + comment conforme flags do lead */
+/** Abre uma NOVA JANELA, executa DM (digitação humana) + fecha chat + follow + extras */
 async function dispatchOneLead(lead) {
     let tab;
+    let windowId = null;
     try {
-        tab = await chrome.tabs.create({
+        const win = await chrome.windows.create({
             url: 'https://www.instagram.com/' + encodeURIComponent(lead.lead_username) + '/',
-            active: false
+            focused: true,
+            type: 'normal',
+            width: 1100,
+            height: 860,
         });
+        windowId = win?.id ?? null;
+        tab = win?.tabs?.[0];
+        if (!tab?.id) throw new Error('sem_tab_na_janela');
     } catch (e) {
-        return { success: false, error: 'nao_abriu_aba: ' + e.message, fatal: false };
+        return { success: false, error: 'nao_abriu_janela: ' + e.message, fatal: false };
     }
 
     const results = {
@@ -684,8 +691,20 @@ async function dispatchOneLead(lead) {
         }
         logD('DM ok');
 
+        // Fecha o chat (Escape) para voltar ao perfil — comportamento humano
+        try {
+            await chrome.scripting.executeScript({
+                target: { tabId: tab.id },
+                world: 'MAIN',
+                func: closeDirectChatInIG
+            });
+            logD('Chat fechado');
+        } catch (e) {
+            logD('erro fechando chat:', e.message);
+        }
+        await sleep(1200 + Math.random() * 800);
+
         // Marca DM como enviado no painel IMEDIATAMENTE (pra anti-loop funcionar)
-        // Não aguarda o mark_sent final (que só rola depois de todas as ações extras)
         try {
             await panelCall('/api/insta/campanhas_callback.php?action=mark_dm_sent', {
                 method: 'POST',
@@ -696,7 +715,7 @@ async function dispatchOneLead(lead) {
             logD('erro mark_dm_sent:', e.message);
         }
 
-        // Voltar pro perfil (o DM abriu modal do direct)
+        // Voltar pro perfil se o chat ainda estiver aberto / URL mudou
         const backToProfile = async () => {
             await chrome.tabs.update(tab.id, {
                 url: 'https://www.instagram.com/' + encodeURIComponent(lead.lead_username) + '/'
@@ -709,22 +728,33 @@ async function dispatchOneLead(lead) {
 
         // ============ 2. SEGUIR PERFIL ============
         if (lead.follow_status === 'pending' || lead.seguir_perfil) {
-            const delayMs = 10000 + Math.random() * 10000;
+            const delayMs = 8000 + Math.random() * 7000;
             logD('[2/5] Aguardando', Math.round(delayMs/1000), 's antes de seguir');
             await sleep(delayMs);
 
-            if (!(await backToProfile())) {
-                results.follow = { success: false, error: 'perfil_nao_recarregou' };
-            } else {
-                logD('Tentando seguir perfil');
-                const followResults = await chrome.scripting.executeScript({
-                    target: { tabId: tab.id },
-                    world: 'MAIN',
-                    func: followProfileInIG
-                });
-                results.follow = followResults?.[0]?.result || { success: false, error: 'sem_resultado' };
-                logD('Follow: ' + (results.follow.success ? 'ok' : results.follow.error));
+            logD('Tentando seguir no perfil atual');
+            let followResults = await chrome.scripting.executeScript({
+                target: { tabId: tab.id },
+                world: 'MAIN',
+                func: followProfileInIG
+            });
+            results.follow = followResults?.[0]?.result || { success: false, error: 'sem_resultado' };
+
+            // Se o botão não apareceu (ainda no chat), recarrega perfil e tenta de novo
+            if (!results.follow.success && !/skipped_already_following/i.test(results.follow.error || '')) {
+                logD('Follow falhou no perfil atual — recarregando');
+                if (await backToProfile()) {
+                    followResults = await chrome.scripting.executeScript({
+                        target: { tabId: tab.id },
+                        world: 'MAIN',
+                        func: followProfileInIG
+                    });
+                    results.follow = followResults?.[0]?.result || { success: false, error: 'sem_resultado' };
+                } else {
+                    results.follow = { success: false, error: 'perfil_nao_recarregou' };
+                }
             }
+            logD('Follow: ' + (results.follow.success ? 'ok' : results.follow.error));
         }
 
         // ============ 3. RESPONDER STORIE (se tiver ativo) ============
@@ -824,8 +854,37 @@ async function dispatchOneLead(lead) {
         logD('excecao dispatchOneLead:', e.message);
         return { success: false, error: 'excecao: ' + e.message, fatal: false, ...results };
     } finally {
-        try { await chrome.tabs.remove(tab.id); } catch {}
+        // Fecha a janela inteira (não só a aba)
+        try {
+            if (windowId != null) await chrome.windows.remove(windowId);
+            else if (tab?.id) await chrome.tabs.remove(tab.id);
+        } catch {}
     }
+}
+
+/** Fecha o modal/aba de Direct com Escape (volta pro perfil). */
+async function closeDirectChatInIG() {
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    for (let i = 0; i < 3; i++) {
+        document.dispatchEvent(new KeyboardEvent('keydown', {
+            key: 'Escape', code: 'Escape', keyCode: 27, which: 27, bubbles: true, cancelable: true,
+        }));
+        document.body?.dispatchEvent(new KeyboardEvent('keydown', {
+            key: 'Escape', code: 'Escape', keyCode: 27, which: 27, bubbles: true, cancelable: true,
+        }));
+        await sleep(400);
+    }
+    // Fecha botão X do direct se ainda estiver aberto
+    const closeBtn = [...document.querySelectorAll('svg[aria-label], button, [role="button"]')]
+        .find((el) => {
+            const label = (el.getAttribute?.('aria-label') || el.textContent || '').trim();
+            return /^(fechar|close)$/i.test(label);
+        });
+    if (closeBtn) {
+        const clickable = closeBtn.closest?.('button, [role="button"]') || closeBtn;
+        try { clickable.click(); } catch {}
+    }
+    return true;
 }
 
 /**
@@ -1965,20 +2024,29 @@ async function dispatchInIG(mensagem) {
             return { success: false, error: 'campo_texto_nao_encontrado', fatal: false };
         }
 
-        // 4. Digita mensagem
+        // 4. Digita mensagem como pessoa (pausa entre letras e palavras)
         textarea.focus();
-        await sleep(500);
+        await sleep(600 + Math.random() * 500);
         try {
             document.execCommand('selectAll', false, null);
             document.execCommand('delete', false, null);
         } catch { }
-        await sleep(200);
+        await sleep(250);
 
-        for (const ch of mensagem) {
+        for (let i = 0; i < mensagem.length; i++) {
+            const ch = mensagem[i];
             try { document.execCommand('insertText', false, ch); } catch { }
-            await sleep(25 + Math.random() * 45);
+            // digitação humana: mais lenta em letras, pausa em espaço/pontuação
+            let delay = 45 + Math.random() * 90;
+            if (ch === ' ') delay += 80 + Math.random() * 160;
+            if (/[.,!?;:]/.test(ch)) delay += 120 + Math.random() * 220;
+            // pausa ocasional "pensando"
+            if (i > 0 && i % (12 + Math.floor(Math.random() * 10)) === 0) {
+                delay += 250 + Math.random() * 450;
+            }
+            await sleep(delay);
         }
-        await sleep(900);
+        await sleep(700 + Math.random() * 600);
 
         // 5. Localiza e clica em Enviar
         const sendRegex = /^(enviar|send)$/i;
@@ -1998,7 +2066,7 @@ async function dispatchInIG(mensagem) {
         if (!enviado) {
             return { success: false, error: 'campo_nao_esvaziou', fatal: false };
         }
-        await sleep(1200);
+        await sleep(1000 + Math.random() * 800);
         return { success: true };
 
     } catch (e) {

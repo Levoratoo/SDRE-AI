@@ -1,7 +1,8 @@
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, asc, desc, eq, sql } from "drizzle-orm";
 import { after, NextResponse } from "next/server";
 import { db } from "@/db";
 import {
+  agentMessages,
   agentSettings,
   campaignDispatches,
   campaigns,
@@ -120,9 +121,37 @@ async function processWebhook(
         continue;
       }
 
+      await ensureOutboundContext(row.userId, senderId, username);
+
+      const historyRows = await db
+        .select()
+        .from(agentMessages)
+        .where(
+          and(
+            eq(agentMessages.userId, row.userId),
+            eq(agentMessages.igsid, senderId),
+          ),
+        )
+        .orderBy(asc(agentMessages.criadoEm))
+        .limit(20);
+
+      const history = historyRows.map((m) => ({
+        role: m.role as "user" | "assistant",
+        content: m.content,
+      }));
+
+      await db.insert(agentMessages).values({
+        userId: row.userId,
+        igsid: senderId,
+        username: username || null,
+        role: "user",
+        content: text,
+      });
+
       const reply = await generateAgentReply({
         systemPrompt: row.prompt || "",
         userMessage: text,
+        history,
       });
 
       await sendIgMessage({
@@ -130,6 +159,14 @@ async function processWebhook(
         accessToken,
         recipientId: senderId,
         text: reply,
+      });
+
+      await db.insert(agentMessages).values({
+        userId: row.userId,
+        igsid: senderId,
+        username: username || null,
+        role: "assistant",
+        content: reply,
       });
 
       const nextTotal = row.totalMensagens + 1;
@@ -145,6 +182,49 @@ async function processWebhook(
       row = { ...row, totalMensagens: nextTotal };
     }
   }
+}
+
+/** Se ainda não há histórico, injeta o DM da campanha como contexto da IA. */
+async function ensureOutboundContext(
+  userId: string,
+  igsid: string,
+  username: string | null,
+) {
+  const [existing] = await db
+    .select({ id: agentMessages.id })
+    .from(agentMessages)
+    .where(
+      and(eq(agentMessages.userId, userId), eq(agentMessages.igsid, igsid)),
+    )
+    .limit(1);
+  if (existing) return;
+  if (!username) return;
+
+  const [outbound] = await db
+    .select({
+      mensagemRender: campaignDispatches.mensagemRender,
+    })
+    .from(campaignDispatches)
+    .innerJoin(campaigns, eq(campaignDispatches.campaignId, campaigns.id))
+    .where(
+      and(
+        eq(campaigns.userId, userId),
+        eq(campaignDispatches.status, "sent"),
+        sql`lower(${campaignDispatches.leadUsername}) = ${username}`,
+      ),
+    )
+    .orderBy(desc(campaignDispatches.enviadoEm))
+    .limit(1);
+
+  if (!outbound?.mensagemRender?.trim()) return;
+
+  await db.insert(agentMessages).values({
+    userId,
+    igsid,
+    username,
+    role: "assistant",
+    content: outbound.mensagemRender.trim(),
+  });
 }
 
 async function resolveIgUsername(igsid: string, accessToken: string) {
