@@ -1331,6 +1331,97 @@ a {
   padding-top: 12px;
 }
 
+.ext-download-card {
+  border-color: rgba(236, 72, 153, 0.25);
+}
+
+.ext-download-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 220px;
+  text-decoration: none;
+  font-size: 1rem;
+  padding: 12px 22px;
+}
+
+.ext-install-steps {
+  margin: 0;
+  padding-left: 22px;
+  line-height: 1.75;
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
+.ext-install-steps li {
+  margin-bottom: 10px;
+}
+
+.ext-install-steps strong {
+  color: var(--text);
+}
+
+.ext-install-note {
+  margin: 16px 0 0;
+  font-size: 13px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--line);
+}
+
+.ext-perms-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ext-perms-list li {
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #0c0d16;
+  font-size: 0.9rem;
+}
+
+.ext-perms-list strong {
+  color: #f9a8d4;
+  font-size: 0.85rem;
+}
+
+.ext-perms-list span {
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.ext-perms-host-title {
+  margin: 18px 0 8px;
+  font-size: 0.95rem;
+  color: #e879f9;
+}
+
+.ext-perms-hosts {
+  margin: 0;
+  padding-left: 20px;
+  font-size: 0.88rem;
+  line-height: 1.7;
+}
+
+.ext-after-list {
+  margin: 0;
+  padding-left: 20px;
+  line-height: 1.75;
+  font-size: 0.92rem;
+}
+
+.onboarding-card {
+  margin-bottom: 16px;
+}
 
 .onboarding-steps {
   list-style: none;
