@@ -1,4 +1,8 @@
 import Link from "next/link";
+import {
+  TutorialLocalPlayer,
+  TutorialYoutubePlayer,
+} from "@/components/tutorial-player";
 import { requireSession } from "@/lib/session";
 import { getTutorial } from "@/lib/tutorials";
 
@@ -10,13 +14,6 @@ export default async function TutorialPage({
   await requireSession();
   const { p } = await searchParams;
   const tutorial = getTutorial(p);
-
-  // Preferência: MP4 próprio (sem links/marca de terceiros na tela).
-  const localSrc = tutorial.videoSrc;
-  const youtubeEmbed =
-    !localSrc && tutorial.youtubeId
-      ? `https://www.youtube.com/embed/${tutorial.youtubeId}?autoplay=1&rel=0&modestbranding=1&controls=1`
-      : null;
 
   return (
     <div className="tut-page">
@@ -30,39 +27,23 @@ export default async function TutorialPage({
         </Link>
       </div>
 
-      {localSrc ? (
-        <div className="tut-wrap">
-          <div className="tut-player">
-            <video
-              src={localSrc}
-              controls
-              autoPlay
-              playsInline
-              controlsList="nodownload"
-              title={`Tutorial — ${tutorial.title}`}
-            />
-          </div>
-        </div>
-      ) : youtubeEmbed ? (
-        <div className="tut-wrap">
-          <div className="tut-player">
-            <iframe
-              src={youtubeEmbed}
-              title={`Tutorial — ${tutorial.title}`}
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-              allowFullScreen
-              referrerPolicy="strict-origin-when-cross-origin"
-            />
-          </div>
-        </div>
+      {tutorial.videoSrc ? (
+        <TutorialLocalPlayer
+          src={tutorial.videoSrc}
+          title={`Tutorial — ${tutorial.title}`}
+        />
+      ) : tutorial.youtubeId ? (
+        <TutorialYoutubePlayer
+          videoId={tutorial.youtubeId}
+          title={`Tutorial — ${tutorial.title}`}
+        />
       ) : (
         <div className="tut-empty">
           <div className="tut-empty-icon">▶</div>
-          <h2>Tutorial em produção</h2>
+          <h2>Tutorial em breve</h2>
           <p>
-            Estamos gravando os vídeos oficiais do Levorato Prospect — sem marca
-            ou links de terceiros na tela. Em breve esta página terá o passo a
-            passo completo de {tutorial.title}.
+            Ainda não há vídeo para {tutorial.title}. Volte ao painel e continue
+            pela interface.
           </p>
           <Link href={tutorial.backHref}>Voltar ao painel</Link>
         </div>

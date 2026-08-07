@@ -13,80 +13,73 @@ export type TutorialKey =
 export type Tutorial = {
   key: TutorialKey;
   title: string;
-  /** YouTube ID só de vídeos Levorato (sem marca de terceiros). */
   youtubeId: string | null;
-  /** MP4 hospedado em /public/tutorials/... (preferível — sem links externos). */
+  /** MP4 em /public/tutorials/... (tem prioridade sobre YouTube). */
   videoSrc: string | null;
   backHref: string;
 };
 
-/**
- * Tutoriais oficiais Levorato Prospect.
- * Não usar vídeos de terceiros (aparecem nome/marca/links na tela).
- * Para ativar: coloque o MP4 em public/tutorials/ e preencha videoSrc,
- * ou um YouTube ID do canal Levorato em youtubeId.
- */
 const TUTORIALS: Record<TutorialKey, Tutorial> = {
   dashboard: {
     key: "dashboard",
     title: "Início",
-    youtubeId: null,
+    youtubeId: "rKbQUxP6tSo",
     videoSrc: null,
     backHref: "/dashboard",
   },
   extracoes: {
     key: "extracoes",
     title: "Extrações",
-    youtubeId: null,
+    youtubeId: "jymCuJzcWo4",
     videoSrc: null,
     backHref: "/extracoes",
   },
   leads: {
     key: "leads",
     title: "Base de leads",
-    youtubeId: null,
+    youtubeId: "jymCuJzcWo4",
     videoSrc: null,
     backHref: "/leads",
   },
   mensagens_dm: {
     key: "mensagens_dm",
     title: "Mensagens DM",
-    youtubeId: null,
+    youtubeId: "fxXT7nn3ilE",
     videoSrc: null,
     backHref: "/mensagens",
   },
   comentarios: {
     key: "comentarios",
     title: "Comentários",
-    youtubeId: null,
+    youtubeId: "fxXT7nn3ilE",
     videoSrc: null,
     backHref: "/comentarios",
   },
   stories: {
     key: "stories",
     title: "Stories",
-    youtubeId: null,
+    youtubeId: "fxXT7nn3ilE",
     videoSrc: null,
     backHref: "/stories",
   },
   campanhas: {
     key: "campanhas",
     title: "Campanhas",
-    youtubeId: null,
+    youtubeId: "OgNMVF4Byg8",
     videoSrc: null,
     backHref: "/campanhas",
   },
   agente: {
     key: "agente",
     title: "Agente IA",
-    youtubeId: null,
+    youtubeId: "5Tn0DNt1On8",
     videoSrc: null,
     backHref: "/agente",
   },
   extensao: {
     key: "extensao",
     title: "Extensão",
-    youtubeId: null,
+    youtubeId: "jymCuJzcWo4",
     videoSrc: null,
     backHref: "/extensao",
   },
