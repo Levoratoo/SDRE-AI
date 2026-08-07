@@ -135,6 +135,7 @@ export const igSessions = pgTable("ig_sessions", {
   userAgent: text("user_agent"),
   igUsername: varchar("ig_username", { length: 120 }),
   igUserPk: text("ig_user_pk"),
+  igProfilePicUrl: text("ig_profile_pic_url"),
   syncedAt: timestamp("synced_at").notNull().defaultNow(),
 });
 

@@ -396,7 +396,14 @@ export async function fetchCurrentIgUserViaTab(tabId) {
                 });
                 if (!r.ok) return { __error: 'HTTP ' + r.status };
                 const j = await r.json();
-                return { username: j?.user?.username, pk: Number(j?.user?.pk) || null };
+                return {
+                    username: j?.user?.username,
+                    pk: Number(j?.user?.pk) || null,
+                    profile_pic_url:
+                        j?.user?.profile_pic_url_hd ||
+                        j?.user?.profile_pic_url ||
+                        null,
+                };
             } catch (e) { return { __error: e.message }; }
         }
     });

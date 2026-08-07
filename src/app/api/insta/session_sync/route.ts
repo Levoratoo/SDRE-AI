@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { igSessions } from "@/db/schema";
+import { fetchIgCurrentUserFromSession } from "@/lib/ig-session-profile";
 import {
   jsonErro,
   jsonOk,
@@ -18,6 +19,7 @@ type Body = {
   user_agent?: string;
   ig_username?: string | null;
   ig_user_pk?: number | string | null;
+  ig_profile_pic_url?: string | null;
 };
 
 export async function POST(req: Request) {
@@ -29,11 +31,24 @@ export async function POST(req: Request) {
     return jsonErro("sessionid obrigatório");
   }
 
-  const igUsername = body.ig_username || null;
-  const igUserPk =
+  let igUsername = body.ig_username?.replace(/^@/, "").toLowerCase() || null;
+  let igUserPk =
     body.ig_user_pk != null && body.ig_user_pk !== ""
       ? String(body.ig_user_pk)
       : body.ds_user_id || null;
+  let igProfilePicUrl = body.ig_profile_pic_url || null;
+
+  const live = await fetchIgCurrentUserFromSession({
+    sessionid: body.sessionid,
+    csrftoken: body.csrftoken,
+    dsUserId: body.ds_user_id,
+    userAgent: body.user_agent,
+  });
+  if (live) {
+    igUsername = live.username;
+    igUserPk = live.pk;
+    igProfilePicUrl = live.profilePicUrl || igProfilePicUrl;
+  }
 
   const existing = await db
     .select({ id: igSessions.id })
@@ -51,6 +66,7 @@ export async function POST(req: Request) {
     userAgent: body.user_agent || null,
     igUsername,
     igUserPk,
+    igProfilePicUrl,
     syncedAt: new Date(),
   };
 
@@ -69,5 +85,6 @@ export async function POST(req: Request) {
   return jsonOk({
     ig_username: igUsername,
     ig_user_pk: igUserPk,
+    ig_profile_pic_url: igProfilePicUrl,
   });
 }

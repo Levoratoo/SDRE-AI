@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 
 type Sessao = {
   igUsername: string | null;
+  igProfilePicUrl: string | null;
   syncedAt: string | null;
 };
 
@@ -138,20 +139,41 @@ export function IgSessionClient() {
       </div>
 
       <div className="ig-account-hero">
-        {conectado && handle ? (
-          <div className="ig-account-handle">{handle}</div>
-        ) : conectado ? (
-          <div className="ig-account-handle muted-handle">Conta conectada</div>
-        ) : (
-          <div className="ig-account-empty">
-            Nenhuma conta do Instagram vinculada ainda.
+        {conectado ? (
+          <div className="ig-account-visual">
+            {sessao?.igProfilePicUrl ? (
+              <img
+                className="ig-account-avatar"
+                src={sessao.igProfilePicUrl}
+                alt=""
+                referrerPolicy="no-referrer"
+              />
+            ) : (
+              <div className="ig-account-avatar ig-account-avatar-placeholder" aria-hidden>
+                IG
+              </div>
+            )}
+            <div>
+              {handle ? (
+                <div className="ig-account-handle">{handle}</div>
+              ) : (
+                <div className="ig-account-handle muted-handle">Conta conectada</div>
+              )}
+              <p className="muted ig-account-hint" style={{ marginTop: 6 }}>
+                Esta é a conta que a VPS usa para extrair e disparar.
+              </p>
+            </div>
           </div>
+        ) : (
+          <>
+            <div className="ig-account-empty">
+              Nenhuma conta do Instagram vinculada ainda.
+            </div>
+            <p className="muted ig-account-hint">
+              Conecte a conta que está logada no Chrome para começar.
+            </p>
+          </>
         )}
-        <p className="muted ig-account-hint">
-          {conectado
-            ? "Esta é a conta que a VPS usa para extrair e disparar."
-            : "Conecte a conta que está logada no Chrome para começar."}
-        </p>
       </div>
 
       {err ? <div className="alert danger">{err}</div> : null}

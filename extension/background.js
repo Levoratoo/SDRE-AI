@@ -268,16 +268,35 @@ async function handleSyncSession(tabId) {
     if (!cookies.sessionid) throw new Error('Não logado no Instagram — abra www.instagram.com e faça login primeiro.');
     let ig_username = null;
     let ig_user_pk  = cookies.ds_user_id ? Number(cookies.ds_user_id) : null;
-    const tab = await pegarAbaIg(tabId);
+    let ig_profile_pic_url = null;
+    let tab = await pegarAbaIg(tabId);
+    if (!tab) {
+        const tabs = await chrome.tabs.query({ url: 'https://www.instagram.com/*' });
+        tab = tabs[0] || null;
+    }
     if (tab) {
         try {
             const u = await fetchCurrentIgUserViaTab(tab.id);
-            if (u && !u.__error) { ig_username = u.username; if (u.pk) ig_user_pk = u.pk; }
+            if (u && !u.__error) {
+                ig_username = u.username;
+                if (u.pk) ig_user_pk = u.pk;
+                if (u.profile_pic_url) ig_profile_pic_url = u.profile_pic_url;
+            }
         } catch { }
     }
-    const payload = { ...cookies, user_agent: navigator.userAgent, ig_username, ig_user_pk };
+    const payload = {
+        ...cookies,
+        user_agent: navigator.userAgent,
+        ig_username,
+        ig_user_pk,
+        ig_profile_pic_url,
+    };
     const r = await panelCall('/api/insta/session_sync.php', { method: 'POST', body: payload });
-    return { ig_username: r.ig_username, ig_user_pk: r.ig_user_pk };
+    return {
+        ig_username: r.ig_username || ig_username,
+        ig_user_pk: r.ig_user_pk || ig_user_pk,
+        ig_profile_pic_url: r.ig_profile_pic_url || ig_profile_pic_url,
+    };
 }
 
 async function scheduleExtNext(delayMs) {

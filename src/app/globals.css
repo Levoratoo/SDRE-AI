@@ -1339,6 +1339,31 @@ a {
   margin: 8px 0 16px;
 }
 
+.ig-account-visual {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.ig-account-avatar {
+  width: 64px;
+  height: 64px;
+  border-radius: 999px;
+  object-fit: cover;
+  border: 2px solid rgba(236, 72, 153, 0.35);
+  flex-shrink: 0;
+  background: #1a1b28;
+}
+
+.ig-account-avatar-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
 .ig-account-handle {
   font-size: 2rem;
   font-weight: 600;

@@ -2,8 +2,58 @@ import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { igSessions } from "@/db/schema";
+import { fetchIgCurrentUserFromSession } from "@/lib/ig-session-profile";
 import { parseIgSessionInput } from "@/lib/ig-session-parse";
 import { getSession } from "@/lib/session";
+
+async function enrichSessionRow(
+  userId: string,
+  row: {
+    id: string;
+    sessionid: string;
+    csrftoken: string | null;
+    dsUserId: string | null;
+    userAgent: string | null;
+    igUsername: string | null;
+    igUserPk: string | null;
+    igProfilePicUrl: string | null;
+    syncedAt: Date;
+  },
+) {
+  let username = row.igUsername;
+  let pk = row.igUserPk || row.dsUserId;
+  let pic = row.igProfilePicUrl;
+
+  if (!username || !pic) {
+    const live = await fetchIgCurrentUserFromSession(row);
+    if (live) {
+      username = username || live.username;
+      pk = pk || live.pk;
+      pic = pic || live.profilePicUrl;
+      if (
+        username !== row.igUsername ||
+        pk !== row.igUserPk ||
+        pic !== row.igProfilePicUrl
+      ) {
+        await db
+          .update(igSessions)
+          .set({
+            igUsername: username?.slice(0, 120) ?? row.igUsername,
+            igUserPk: pk ?? row.igUserPk,
+            igProfilePicUrl: pic ?? row.igProfilePicUrl,
+          })
+          .where(eq(igSessions.id, row.id));
+      }
+    }
+  }
+
+  return {
+    igUsername: username,
+    igUserPk: pk,
+    igProfilePicUrl: pic,
+    syncedAt: row.syncedAt?.toISOString() ?? null,
+  };
+}
 
 export async function GET() {
   const session = await getSession();
@@ -12,14 +62,7 @@ export async function GET() {
   }
 
   const [row] = await db
-    .select({
-      igUsername: igSessions.igUsername,
-      igUserPk: igSessions.igUserPk,
-      dsUserId: igSessions.dsUserId,
-      syncedAt: igSessions.syncedAt,
-      sessionid: igSessions.sessionid,
-      csrftoken: igSessions.csrftoken,
-    })
+    .select()
     .from(igSessions)
     .where(eq(igSessions.userId, session.user.id))
     .limit(1);
@@ -32,20 +75,12 @@ export async function GET() {
     });
   }
 
-  const sid = row.sessionid || "";
-  const masked =
-    sid.length > 12 ? `${sid.slice(0, 6)}…${sid.slice(-4)}` : "••••";
+  const sessao = await enrichSessionRow(session.user.id, row);
 
   return NextResponse.json({
     ok: true,
     conectado: true,
-    sessao: {
-      igUsername: row.igUsername,
-      igUserPk: row.igUserPk || row.dsUserId,
-      syncedAt: row.syncedAt?.toISOString() ?? null,
-      sessionidMasked: masked,
-      temCsrf: !!row.csrftoken,
-    },
+    sessao,
   });
 }
 
@@ -63,9 +98,11 @@ export async function POST(req: Request) {
 
   const parsed = parseIgSessionInput(body.cookies || "", {
     username: body.username,
-    userAgent: body.userAgent || (typeof req.headers.get("user-agent") === "string"
-      ? req.headers.get("user-agent") || undefined
-      : undefined),
+    userAgent:
+      body.userAgent ||
+      (typeof req.headers.get("user-agent") === "string"
+        ? req.headers.get("user-agent") || undefined
+        : undefined),
   });
 
   if ("error" in parsed) {
@@ -85,28 +122,53 @@ export async function POST(req: Request) {
     syncedAt: new Date(),
   };
 
+  const live = await fetchIgCurrentUserFromSession({
+    sessionid: values.sessionid,
+    csrftoken: values.csrftoken,
+    dsUserId: values.dsUserId,
+    userAgent: values.userAgent,
+  });
+  if (live) {
+    values.igUsername = live.username;
+    values.igUserPk = live.pk;
+  }
+
   const [existing] = await db
     .select({ id: igSessions.id })
     .from(igSessions)
     .where(eq(igSessions.userId, session.user.id))
     .limit(1);
 
+  let saved;
   if (existing) {
-    await db
+    [saved] = await db
       .update(igSessions)
-      .set(values)
-      .where(eq(igSessions.userId, session.user.id));
+      .set({
+        ...values,
+        igProfilePicUrl: live?.profilePicUrl ?? null,
+      })
+      .where(eq(igSessions.userId, session.user.id))
+      .returning();
   } else {
-    await db.insert(igSessions).values({
-      userId: session.user.id,
-      ...values,
-    });
+    [saved] = await db
+      .insert(igSessions)
+      .values({
+        userId: session.user.id,
+        ...values,
+        igProfilePicUrl: live?.profilePicUrl ?? null,
+      })
+      .returning();
   }
+
+  const sessao = saved
+    ? await enrichSessionRow(session.user.id, saved)
+    : null;
 
   return NextResponse.json({
     ok: true,
-    igUsername: values.igUsername,
-    syncedAt: values.syncedAt.toISOString(),
+    igUsername: sessao?.igUsername,
+    syncedAt: sessao?.syncedAt,
+    sessao,
   });
 }
 
