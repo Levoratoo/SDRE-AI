@@ -6,6 +6,7 @@ import {
   openIgSession,
   randBetween,
   sleep,
+  type IgFollower,
   type IgSession,
 } from "./ig";
 
@@ -23,17 +24,11 @@ async function getSession(userId: string): Promise<IgSession | null> {
 async function upsertLeads(
   userId: string,
   extractionId: string,
-  users: {
-    pk: number;
-    username: string;
-    full_name: string;
-    is_private: boolean;
-    is_verified: boolean;
-    is_business: boolean;
-  }[],
+  users: IgFollower[],
 ) {
   let novos = 0;
   for (const u of users) {
+    if (!u.pk || !u.username) continue;
     const pk = String(u.pk);
     const existing = await db
       .select({ id: leads.id })
@@ -74,6 +69,18 @@ async function upsertLeads(
       .where(eq(extractions.id, extractionId));
   }
   return novos;
+}
+
+async function stillActive(id: string): Promise<"running" | "paused" | "stop"> {
+  const [row] = await db
+    .select({ status: extractions.status })
+    .from(extractions)
+    .where(eq(extractions.id, id))
+    .limit(1);
+  if (!row) return "stop";
+  if (row.status === "paused" || row.status === "cancelled") return "paused";
+  if (row.status === "running" || row.status === "queued") return "running";
+  return "stop";
 }
 
 export async function processNextExtraction(): Promise<boolean> {
@@ -154,19 +161,30 @@ export async function processNextExtraction(): Promise<boolean> {
       })
       .where(eq(extractions.id, claimed.id));
 
-    const delayMin = claimed.delayMinMs && claimed.delayMinMs >= 400
-      ? claimed.delayMinMs
-      : 700;
+    const delayMin =
+      claimed.delayMinMs && claimed.delayMinMs >= 400 ? claimed.delayMinMs : 700;
     const delayMax =
       claimed.delayMaxMs && claimed.delayMaxMs > delayMin
         ? claimed.delayMaxMs
         : 1600;
     const limite = claimed.limite && claimed.limite > 0 ? claimed.limite : null;
 
-    let maxId: string | null = null;
-    let captured = 0;
+    // Retoma cursor se existir (extração pausada/re-enfileirada)
+    let maxId: string | null = claimed.maxId || null;
+    let captured = claimed.capturados || 0;
 
     while (true) {
+      const state = await stillActive(claimed.id);
+      if (state === "paused") {
+        log("paused by user", claimed.id);
+        await db
+          .update(extractions)
+          .set({ claimedAt: null, maxId, status: "paused" })
+          .where(eq(extractions.id, claimed.id));
+        return true;
+      }
+      if (state === "stop") break;
+
       if (limite && captured >= limite) break;
 
       let pageData;
@@ -176,10 +194,18 @@ export async function processNextExtraction(): Promise<boolean> {
         const err = e as Error & { code?: string };
         if (err.code === "RATE") {
           log("rate limit — pausando 20min");
+          await db
+            .update(extractions)
+            .set({ maxId, erroMensagem: "rate_limit_aguardando" })
+            .where(eq(extractions.id, claimed.id));
           await sleep(20 * 60 * 1000);
           continue;
         }
-        if (err.code === "AUTH") throw new Error("Sessão IG inválida durante extração");
+        if (err.code === "AUTH") {
+          throw Object.assign(new Error("Sessão IG inválida durante extração"), {
+            fatal: true,
+          });
+        }
         throw err;
       }
 
@@ -187,29 +213,44 @@ export async function processNextExtraction(): Promise<boolean> {
         ? pageData.users.slice(0, Math.max(0, limite - captured))
         : pageData.users;
 
-      await upsertLeads(claimed.userId, claimed.id, take);
-      captured += take.length;
+      const novos = await upsertLeads(claimed.userId, claimed.id, take);
+      captured += novos;
       maxId = pageData.next_max_id;
 
       await db
         .update(extractions)
-        .set({ maxId })
+        .set({ maxId, erroMensagem: null })
         .where(eq(extractions.id, claimed.id));
 
-      log("capturados neste job ~", captured);
+      log("capturados neste job ~", captured, "novos", novos);
 
       if (!maxId || (limite && captured >= limite)) break;
       await sleep(randBetween(delayMin, delayMax));
     }
 
+    const finalState = await stillActive(claimed.id);
+    if (finalState === "paused") {
+      await db
+        .update(extractions)
+        .set({ claimedAt: null, maxId, status: "paused" })
+        .where(eq(extractions.id, claimed.id));
+      return true;
+    }
+
     await db
       .update(extractions)
-      .set({ status: "finished", finalizadoEm: new Date(), erroMensagem: null })
+      .set({
+        status: "finished",
+        finalizadoEm: new Date(),
+        erroMensagem: null,
+        claimedAt: null,
+      })
       .where(eq(extractions.id, claimed.id));
 
     log("finished", claimed.id, "captured~", captured);
   } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
+    const err = e as Error & { fatal?: boolean };
+    const msg = err.message || String(e);
     log("error", msg);
     await db
       .update(extractions)
@@ -217,6 +258,7 @@ export async function processNextExtraction(): Promise<boolean> {
         status: "error",
         erroMensagem: msg.slice(0, 500),
         finalizadoEm: new Date(),
+        claimedAt: null,
       })
       .where(eq(extractions.id, claimed.id));
   } finally {

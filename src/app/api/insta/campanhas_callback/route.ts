@@ -1,4 +1,4 @@
-import { and, count, eq, sql } from "drizzle-orm";
+import { and, count, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { campaignDispatches, campaigns } from "@/db/schema";
 import {
@@ -101,17 +101,45 @@ export async function GET(req: Request) {
     if (!win.ok) {
       return jsonOk({ fim_da_fila: false, leads: [], aguardar: true, motivo: win.motivo });
     }
-    const [d] = await db
+    // libera claims órfãos da extensão (>15 min)
+    await db
+      .update(campaignDispatches)
+      .set({ claimedAt: null })
+      .where(
+        and(
+          eq(campaignDispatches.campaignId, campanhaId),
+          eq(campaignDispatches.status, "pending"),
+          sql`${campaignDispatches.claimedAt} IS NOT NULL`,
+          sql`${campaignDispatches.claimedAt} < NOW() - INTERVAL '15 minutes'`,
+        ),
+      );
+
+    const [candidate] = await db
       .select()
       .from(campaignDispatches)
       .where(
         and(
           eq(campaignDispatches.campaignId, campanhaId),
           eq(campaignDispatches.status, "pending"),
+          isNull(campaignDispatches.claimedAt),
         ),
       )
       .limit(1);
-    if (!d) return jsonOk({ fim_da_fila: true, leads: [] });
+    if (!candidate) return jsonOk({ fim_da_fila: true, leads: [] });
+
+    const [d] = await db
+      .update(campaignDispatches)
+      .set({ claimedAt: new Date() })
+      .where(
+        and(
+          eq(campaignDispatches.id, candidate.id),
+          eq(campaignDispatches.status, "pending"),
+          isNull(campaignDispatches.claimedAt),
+        ),
+      )
+      .returning();
+    if (!d) return jsonOk({ fim_da_fila: false, leads: [], aguardar: true });
+
     return jsonOk({
       fim_da_fila: false,
       min_delay_min: c.minDelayMin,
@@ -192,6 +220,7 @@ export async function POST(req: Request) {
       .set({
         status: "sent",
         enviadoEm: new Date(),
+        claimedAt: null,
         followStatus: body.follow_status
           ? String(body.follow_status)
           : d.followStatus,
@@ -232,6 +261,7 @@ export async function POST(req: Request) {
       .set({
         status: "error",
         erroMensagem: String(body.erro_mensagem || "erro").slice(0, 500),
+        claimedAt: null,
       })
       .where(eq(campaignDispatches.id, disparoId));
 

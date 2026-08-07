@@ -1,14 +1,12 @@
-import { and, asc, eq, sql } from "drizzle-orm";
+import { and, asc, eq, isNull, sql } from "drizzle-orm";
+import { campaignDispatches, campaigns, db, igSessions } from "./db";
 import {
-  campaignDispatches,
-  campaigns,
-  db,
-  igSessions,
-} from "./db";
-import {
+  commentLatestPost,
   followProfile,
+  likeLatestPost,
   openIgSession,
   randBetween,
+  replyStory,
   sendDm,
   sleep,
 } from "./ig";
@@ -66,10 +64,21 @@ function isWithinSchedule(c: {
 }
 
 /**
- * Processa 1 disparo pendente de campanha running.
- * Requer campanha criada no painel (Fase 4 UI) + sessão IG sync.
+ * Processa 1 disparo pendente de campanha running (VPS 24/7).
  */
 export async function processNextDispatch(): Promise<boolean> {
+  // libera claims órfãos (>15 min)
+  await db
+    .update(campaignDispatches)
+    .set({ claimedAt: null })
+    .where(
+      and(
+        eq(campaignDispatches.status, "pending"),
+        sql`${campaignDispatches.claimedAt} IS NOT NULL`,
+        sql`${campaignDispatches.claimedAt} < NOW() - INTERVAL '15 minutes'`,
+      ),
+    );
+
   const rows = await db
     .select({
       dispatch: campaignDispatches,
@@ -81,6 +90,7 @@ export async function processNextDispatch(): Promise<boolean> {
       and(
         eq(campaigns.status, "running"),
         eq(campaignDispatches.status, "pending"),
+        isNull(campaignDispatches.claimedAt),
       ),
     )
     .orderBy(asc(campaignDispatches.criadoEm))
@@ -89,14 +99,30 @@ export async function processNextDispatch(): Promise<boolean> {
   const row = rows[0];
   if (!row) return false;
 
-  const { dispatch, campaign } = row;
-  log("lead", dispatch.leadUsername, "campanha", campaign.nome);
+  const { campaign } = row;
 
   if (!isWithinSchedule(campaign)) {
     log("fora da janela", campaign.nome);
     await sleep(60_000);
     return true;
   }
+
+  const [claimed] = await db
+    .update(campaignDispatches)
+    .set({ claimedAt: new Date() })
+    .where(
+      and(
+        eq(campaignDispatches.id, row.dispatch.id),
+        eq(campaignDispatches.status, "pending"),
+        isNull(campaignDispatches.claimedAt),
+      ),
+    )
+    .returning();
+
+  if (!claimed) return false;
+
+  const dispatch = claimed;
+  log("lead", dispatch.leadUsername, "campanha", campaign.nome);
 
   const [session] = await db
     .select()
@@ -110,6 +136,7 @@ export async function processNextDispatch(): Promise<boolean> {
       .set({
         status: "error",
         erroMensagem: "Sem sessão IG no servidor",
+        claimedAt: null,
       })
       .where(eq(campaignDispatches.id, dispatch.id));
     await db
@@ -122,27 +149,82 @@ export async function processNextDispatch(): Promise<boolean> {
     return true;
   }
 
-  if (!dispatch.mensagemRender?.trim()) {
+  const hasDm = !!dispatch.mensagemRender?.trim();
+  const hasComment = campaign.comentar && !!dispatch.comentarioRender?.trim();
+  const hasStorie = campaign.storie && !!dispatch.storieRender?.trim();
+  if (!hasDm && !campaign.seguir && !campaign.curtir && !hasComment && !hasStorie) {
     await db
       .update(campaignDispatches)
-      .set({ status: "error", erroMensagem: "mensagem_vazia" })
+      .set({
+        status: "error",
+        erroMensagem: "nada_para_fazer",
+        claimedAt: null,
+      })
       .where(eq(campaignDispatches.id, dispatch.id));
     return true;
   }
 
   let browser;
   try {
+    // confirma campanha ainda running
+    const [alive] = await db
+      .select({ status: campaigns.status })
+      .from(campaigns)
+      .where(eq(campaigns.id, campaign.id))
+      .limit(1);
+    if (!alive || alive.status !== "running") {
+      await db
+        .update(campaignDispatches)
+        .set({ claimedAt: null })
+        .where(eq(campaignDispatches.id, dispatch.id));
+      return true;
+    }
+
     const opened = await openIgSession(session);
     browser = opened.browser;
     const { page } = opened;
 
-    await sendDm(page, dispatch.leadUsername, dispatch.mensagemRender);
+    if (hasDm) {
+      await sendDm(page, dispatch.leadUsername, dispatch.mensagemRender!.trim());
+    }
 
     let followStatus: string | null = dispatch.followStatus;
+    let likeStatus: string | null = dispatch.likeStatus;
+    let comentarioStatus: string | null = dispatch.comentarioStatus;
+    let storieStatus: string | null = dispatch.storieStatus;
+
     if (campaign.seguir) {
       await sleep(randBetween(8000, 15000));
       const ok = await followProfile(page, dispatch.leadUsername);
       followStatus = ok ? "sent" : "error";
+    }
+
+    if (campaign.curtir) {
+      await sleep(randBetween(5000, 10000));
+      const r = await likeLatestPost(page, dispatch.leadUsername);
+      likeStatus = r === "already" ? "already" : r === "sent" ? "sent" : "error";
+    }
+
+    if (hasComment) {
+      await sleep(randBetween(5000, 10000));
+      const r = await commentLatestPost(
+        page,
+        dispatch.leadUsername,
+        dispatch.comentarioRender!.trim(),
+      );
+      comentarioStatus =
+        r === "sent" ? "sent" : r === "disabled" ? "disabled" : "error";
+    }
+
+    if (hasStorie) {
+      await sleep(randBetween(5000, 10000));
+      const r = await replyStory(
+        page,
+        dispatch.leadUsername,
+        dispatch.storieRender!.trim(),
+      );
+      storieStatus =
+        r === "sent" ? "sent" : r === "skipped" ? "skipped" : "error";
     }
 
     await db
@@ -150,8 +232,12 @@ export async function processNextDispatch(): Promise<boolean> {
       .set({
         status: "sent",
         followStatus,
+        likeStatus,
+        comentarioStatus,
+        storieStatus,
         enviadoEm: new Date(),
         erroMensagem: null,
+        claimedAt: null,
       })
       .where(eq(campaignDispatches.id, dispatch.id));
 
@@ -166,35 +252,39 @@ export async function processNextDispatch(): Promise<boolean> {
     log("sent ok", dispatch.leadUsername);
 
     const minMs = (campaign.minDelayMin || 3) * 60 * 1000;
-    const maxMs = (campaign.maxDelayMin || 8) * 60 * 1000;
+    const maxMs = Math.max(minMs, (campaign.maxDelayMin || 8) * 60 * 1000);
     const wait = randBetween(minMs, maxMs);
     log("sleep", Math.round(wait / 1000), "s");
     await sleep(wait);
   } catch (e) {
-    const err = e as Error & { fatal?: boolean };
+    const err = e as Error & { fatal?: boolean; code?: string };
     const msg = err.message || String(e);
     log("error", msg);
+    const fatal = !!err.fatal || err.code === "AUTH";
     await db
       .update(campaignDispatches)
-      .set({ status: "error", erroMensagem: msg.slice(0, 500) })
+      .set({
+        status: "error",
+        erroMensagem: msg.slice(0, 500),
+        claimedAt: null,
+      })
       .where(eq(campaignDispatches.id, dispatch.id));
     await db
       .update(campaigns)
       .set({
         erros: sql`${campaigns.erros} + 1`,
         atualizadoEm: new Date(),
-        ...(err.fatal ? { status: "paused" as const } : {}),
+        ...(fatal ? { status: "paused" as const } : {}),
       })
       .where(eq(campaigns.id, campaign.id));
 
-    if (!err.fatal) {
+    if (!fatal) {
       await sleep(randBetween(60_000, 120_000));
     }
   } finally {
     if (browser) await browser.close().catch(() => {});
   }
 
-  // se acabou a fila, marca campanha finished
   const [pending] = await db
     .select({ id: campaignDispatches.id })
     .from(campaignDispatches)

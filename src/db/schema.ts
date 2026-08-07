@@ -233,6 +233,7 @@ export const campaignDispatches = pgTable("campaign_dispatches", {
   comentarioStatus: varchar("comentario_status", { length: 40 }),
   storieStatus: varchar("storie_status", { length: 40 }),
   erroMensagem: text("erro_mensagem"),
+  claimedAt: timestamp("claimed_at"),
   enviadoEm: timestamp("enviado_em"),
   criadoEm: timestamp("criado_em").notNull().defaultNow(),
 });

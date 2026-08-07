@@ -2085,10 +2085,15 @@ async function dispatchInIG(mensagem) {
 let _queueRunning = false;
 
 async function ensureQueueAlarm() {
-    chrome.alarms.create(ALARM_QUEUE, { periodInMinutes: 0.5 });
+    // Fila do painel é consumida pelo worker na VPS (24/7).
+    // Extensão NÃO reivindica jobs automaticamente — evita race e depende do notebook.
+    await chrome.alarms.clear(ALARM_QUEUE);
 }
 
 async function pollExtractionQueue() {
+    // Desativado: extração enfileirada roda na VPS.
+    // Extração manual pelo popup continua disponível.
+    return;
     if (_queueRunning) return;
     _queueRunning = true;
     try {

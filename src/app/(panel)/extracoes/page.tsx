@@ -56,13 +56,13 @@ export default async function ExtracoesPage() {
         <div>
           <h1 className="page-title gradient-text">Extrações</h1>
           <p className="page-sub">
-            Extraia seguidores de perfis do Instagram. O worker na VPS ou a
-            extensão processam a fila automaticamente.
+            Extraia seguidores de perfis do Instagram. Enfileire abaixo — o
+            worker na VPS processa 24/7 mesmo com o PC desligado.
           </p>
         </div>
         <div className="page-actions">
           <Link className="btn primary" href="#nova-extracao">
-            Nova extração pela extensão
+            Enfileirar @
           </Link>
         </div>
       </div>

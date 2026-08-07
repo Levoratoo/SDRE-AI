@@ -1,31 +1,32 @@
 # Levorato Prospect — Worker VPS
 
-Worker 24/7 (Playwright) que:
+Playwright + Neon. Consome fila de **extrações** e **disparos** 24/7.
 
-1. Consome extrações `queued` no Neon (mesmo fluxo do painel)
-2. Dispara DMs de campanhas `running` com leads `pending`
+## Env
 
-## Requisitos
-
-- `DATABASE_URL` do Neon
-- Sessão IG sincronizada pelo menos uma vez (extensão → Sincronizar sessão)
-- Conta de prospecção descartável + delays altos
+- `DATABASE_URL` do Neon (mesma do painel)
+- `HEADLESS=true`
+- `POLL_MS=15000`
 
 ## Local
 
 ```bash
 cd worker
 npm install
-npx playwright install chromium
 DATABASE_URL=... npm start
 ```
 
-## Docker / Hostinger
+## Docker
 
 Na raiz do repo:
 
 ```bash
-export DATABASE_URL=postgresql://...
 docker compose up -d --build
 docker compose logs -f
 ```
+
+## Fluxo
+
+1. Extensão → sincronizar sessão IG (cookies no Neon)
+2. Painel enfileira extração / dá Play na campanha
+3. Este worker processa sozinho

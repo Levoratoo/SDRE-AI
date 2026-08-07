@@ -183,7 +183,8 @@ export function CampanhasClient({ leadsCount }: { leadsCount: number }) {
         <div>
           <h1 className="page-title gradient-text">Campanhas de Direct</h1>
           <p className="page-sub">
-            Crie a fila e aperte Play — extensão ou worker VPS disparam 24/7.
+            Crie a fila e aperte Play — o worker na VPS dispara 24/7 (PC pode
+            ficar desligado).
           </p>
         </div>
         <div className="page-actions">

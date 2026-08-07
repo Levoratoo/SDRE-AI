@@ -75,7 +75,8 @@ export function ExtracaoQueueForm() {
     <div className="card" style={{ marginBottom: 16 }}>
       <h2>Nova extração</h2>
       <p className="muted" style={{ marginTop: 0 }}>
-        Cole o @ do Instagram. Worker na VPS ou extensão processam a fila.
+        Cole o @ do Instagram. O worker na VPS processa a fila 24/7 (PC pode
+        ficar desligado). Sincronize a sessão na extensão uma vez.
       </p>
       <form onSubmit={onSubmit}>
         <div className="field">
