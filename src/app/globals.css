@@ -434,25 +434,34 @@ a {
   height: 100% !important;
   border: 0;
 }
-/* Cobre título/canal do YouTube (topo) e logo (canto) — sem clique pra fora */
+/* Zoom leve: empurra título/canal/logo do YouTube fora da área visível */
+.tut-yt-shell iframe {
+  width: 118% !important;
+  height: 118% !important;
+  left: -9% !important;
+  top: -7% !important;
+}
+/* Cobre resíduos do chrome do YouTube (título, canal, logo) */
 .tut-yt-mask {
   position: absolute;
   z-index: 3;
-  pointer-events: auto;
-  background: transparent;
+  pointer-events: none;
 }
 .tut-yt-mask-top {
   top: 0;
   left: 0;
   right: 0;
-  height: 72px;
-  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.55), transparent);
+  height: 104px;
+  background: #000;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.85);
 }
 .tut-yt-mask-logo {
   right: 0;
   bottom: 0;
-  width: 120px;
-  height: 56px;
+  width: 140px;
+  height: 72px;
+  background: #000;
+  box-shadow: -12px -8px 24px rgba(0, 0, 0, 0.85);
 }
 .tut-yt-hit {
   position: absolute;

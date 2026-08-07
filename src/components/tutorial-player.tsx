@@ -101,6 +101,7 @@ export function TutorialYoutubePlayer({
           disablekb: 1,
           playsinline: 1,
           cc_load_policy: 0,
+          showinfo: 0,
           origin: window.location.origin,
         },
         events: {
