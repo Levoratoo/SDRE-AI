@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
-const EXT_VERSION = "1.1.1";
+const EXT_VERSION = "1.1.2";
 
 const PERMISSIONS = [
   {
