@@ -1,5 +1,11 @@
-import { and, asc, eq, isNull, sql } from "drizzle-orm";
-import { db, extractions, igSessions, leads } from "./db";
+import { and, asc, eq, inArray, isNull, sql } from "drizzle-orm";
+import { db, extractions, igSessions, leads, users } from "./db";
+import { isUserActive } from "./account";
+import {
+  getLastExtractUserId,
+  markExtractUser,
+  pickFairUserId,
+} from "./fair";
 import {
   fetchFollowersPage,
   fetchProfile,
@@ -10,7 +16,8 @@ import {
   type IgSession,
 } from "./ig";
 
-const log = (...args: unknown[]) => console.log("[extract]", ...args);
+const log = (meta: Record<string, unknown>, ...args: unknown[]) =>
+  console.log("[extract]", { ...meta, msg: args.join(" ") });
 
 async function getSession(userId: string): Promise<IgSession | null> {
   const rows = await db
@@ -96,14 +103,24 @@ export async function processNextExtraction(): Promise<boolean> {
       ),
     );
 
-  const jobs = await db
-    .select()
+  const candidates = await db
+    .select({ job: extractions })
     .from(extractions)
-    .where(and(eq(extractions.status, "queued"), isNull(extractions.claimedAt)))
+    .innerJoin(users, eq(users.id, extractions.userId))
+    .where(
+      and(
+        eq(extractions.status, "queued"),
+        isNull(extractions.claimedAt),
+        inArray(users.accountStatus, ["active", "trial"]),
+      ),
+    )
     .orderBy(asc(extractions.iniciadoEm))
-    .limit(1);
+    .limit(20);
 
-  const job = jobs[0];
+  const job = pickFairUserId(
+    candidates.map((r) => r.job),
+    getLastExtractUserId(),
+  );
   if (!job) return false;
 
   const [claimed] = await db
@@ -120,7 +137,29 @@ export async function processNextExtraction(): Promise<boolean> {
 
   if (!claimed) return false;
 
-  log("job", claimed.id, "@" + claimed.perfilAlvoUsername);
+  markExtractUser(claimed.userId);
+
+  if (!(await isUserActive(claimed.userId))) {
+    await db
+      .update(extractions)
+      .set({
+        status: "error",
+        erroMensagem: "Conta suspensa — contate o suporte.",
+        finalizadoEm: new Date(),
+        claimedAt: null,
+      })
+      .where(eq(extractions.id, claimed.id));
+    log(
+      { userId: claimed.userId, jobId: claimed.id, action: "skip_suspended" },
+      "conta suspensa",
+    );
+    return true;
+  }
+
+  log(
+    { userId: claimed.userId, jobId: claimed.id, action: "start" },
+    "@" + claimed.perfilAlvoUsername,
+  );
 
   const session = await getSession(claimed.userId);
   if (!session?.sessionid) {
@@ -128,7 +167,7 @@ export async function processNextExtraction(): Promise<boolean> {
       .update(extractions)
       .set({
         status: "error",
-        erroMensagem: "Sem sessão IG sincronizada — use a extensão uma vez.",
+        erroMensagem: "Sem sessão IG — cole o sessionid em Minha Conta.",
         finalizadoEm: new Date(),
       })
       .where(eq(extractions.id, claimed.id));
@@ -176,7 +215,10 @@ export async function processNextExtraction(): Promise<boolean> {
     while (true) {
       const state = await stillActive(claimed.id);
       if (state === "paused") {
-        log("paused by user", claimed.id);
+        log(
+          { userId: claimed.userId, jobId: claimed.id, action: "paused" },
+          "paused by user",
+        );
         await db
           .update(extractions)
           .set({ claimedAt: null, maxId, status: "paused" })
@@ -193,7 +235,10 @@ export async function processNextExtraction(): Promise<boolean> {
       } catch (e) {
         const err = e as Error & { code?: string };
         if (err.code === "RATE") {
-          log("rate limit — pausando 20min");
+          log(
+            { userId: claimed.userId, jobId: claimed.id, action: "rate_limit" },
+            "rate limit — pausando 20min",
+          );
           await db
             .update(extractions)
             .set({ maxId, erroMensagem: "rate_limit_aguardando" })
@@ -222,7 +267,16 @@ export async function processNextExtraction(): Promise<boolean> {
         .set({ maxId, erroMensagem: null })
         .where(eq(extractions.id, claimed.id));
 
-      log("capturados neste job ~", captured, "novos", novos);
+      log(
+        {
+          userId: claimed.userId,
+          jobId: claimed.id,
+          action: "progress",
+          captured,
+          novos,
+        },
+        "capturados",
+      );
 
       if (!maxId || (limite && captured >= limite)) break;
       await sleep(randBetween(delayMin, delayMax));
@@ -247,11 +301,17 @@ export async function processNextExtraction(): Promise<boolean> {
       })
       .where(eq(extractions.id, claimed.id));
 
-    log("finished", claimed.id, "captured~", captured);
+    log(
+      { userId: claimed.userId, jobId: claimed.id, action: "finished", captured },
+      "finished",
+    );
   } catch (e) {
     const err = e as Error & { fatal?: boolean };
     const msg = err.message || String(e);
-    log("error", msg);
+    log(
+      { userId: claimed.userId, jobId: claimed.id, action: "error", error: msg },
+      msg,
+    );
     await db
       .update(extractions)
       .set({

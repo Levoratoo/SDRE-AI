@@ -1,5 +1,11 @@
-import { and, asc, eq, isNull, sql } from "drizzle-orm";
-import { campaignDispatches, campaigns, db, igSessions } from "./db";
+import { and, asc, eq, inArray, isNull, sql } from "drizzle-orm";
+import { campaignDispatches, campaigns, db, igSessions, users } from "./db";
+import { isUserActive } from "./account";
+import {
+  getLastDispatchUserId,
+  markDispatchUser,
+  pickFairUserId,
+} from "./fair";
 import {
   commentLatestPost,
   followProfile,
@@ -11,7 +17,27 @@ import {
   sleep,
 } from "./ig";
 
-const log = (...args: unknown[]) => console.log("[dispatch]", ...args);
+const log = (meta: Record<string, unknown>, ...args: unknown[]) =>
+  console.log("[dispatch]", { ...meta, msg: args.join(" ") });
+
+const MAX_DISPATCHES_PER_USER_PER_HOUR = Number(
+  process.env.MAX_DISPATCHES_PER_USER_PER_HOUR || 0,
+);
+
+async function dispatchCountLastHour(userId: string): Promise<number> {
+  const [row] = await db
+    .select({ value: sql<number>`count(*)::int` })
+    .from(campaignDispatches)
+    .innerJoin(campaigns, eq(campaigns.id, campaignDispatches.campaignId))
+    .where(
+      and(
+        eq(campaigns.userId, userId),
+        eq(campaignDispatches.status, "sent"),
+        sql`${campaignDispatches.enviadoEm} > NOW() - INTERVAL '1 hour'`,
+      ),
+    );
+  return Number(row?.value ?? 0);
+}
 
 function isWithinSchedule(c: {
   scheduleStart: string | null;
@@ -79,30 +105,52 @@ export async function processNextDispatch(): Promise<boolean> {
       ),
     );
 
-  const rows = await db
+  const candidates = await db
     .select({
       dispatch: campaignDispatches,
       campaign: campaigns,
     })
     .from(campaignDispatches)
     .innerJoin(campaigns, eq(campaigns.id, campaignDispatches.campaignId))
+    .innerJoin(users, eq(users.id, campaigns.userId))
     .where(
       and(
         eq(campaigns.status, "running"),
         eq(campaignDispatches.status, "pending"),
         isNull(campaignDispatches.claimedAt),
+        inArray(users.accountStatus, ["active", "trial"]),
       ),
     )
     .orderBy(asc(campaignDispatches.criadoEm))
-    .limit(1);
+    .limit(20);
 
-  const row = rows[0];
+  const row = pickFairUserId(
+    candidates.map((r) => ({ ...r.dispatch, userId: r.campaign.userId, campaign: r.campaign })),
+    getLastDispatchUserId(),
+  );
   if (!row) return false;
 
   const { campaign } = row;
 
+  if (
+    MAX_DISPATCHES_PER_USER_PER_HOUR > 0 &&
+    (await dispatchCountLastHour(campaign.userId)) >=
+      MAX_DISPATCHES_PER_USER_PER_HOUR
+  ) {
+    log(
+      { userId: campaign.userId, action: "hour_cap", campaignId: campaign.id },
+      "cap por hora",
+    );
+    await sleep(60_000);
+    return true;
+  }
+
   if (!isWithinSchedule(campaign)) {
-    log("fora da janela", campaign.nome);
+    log(
+      { userId: campaign.userId, action: "schedule_skip", campaignId: campaign.id },
+      "fora da janela",
+      campaign.nome,
+    );
     await sleep(60_000);
     return true;
   }
@@ -112,7 +160,7 @@ export async function processNextDispatch(): Promise<boolean> {
     .set({ claimedAt: new Date() })
     .where(
       and(
-        eq(campaignDispatches.id, row.dispatch.id),
+        eq(campaignDispatches.id, row.id),
         eq(campaignDispatches.status, "pending"),
         isNull(campaignDispatches.claimedAt),
       ),
@@ -121,8 +169,39 @@ export async function processNextDispatch(): Promise<boolean> {
 
   if (!claimed) return false;
 
+  markDispatchUser(campaign.userId);
+
+  if (!(await isUserActive(campaign.userId))) {
+    await db
+      .update(campaignDispatches)
+      .set({
+        status: "skipped",
+        erroMensagem: "Conta suspensa",
+        claimedAt: null,
+      })
+      .where(eq(campaignDispatches.id, claimed.id));
+    await db
+      .update(campaigns)
+      .set({ status: "paused", atualizadoEm: new Date() })
+      .where(eq(campaigns.id, campaign.id));
+    log(
+      { userId: campaign.userId, action: "skip_suspended", campaignId: campaign.id },
+      "conta suspensa",
+    );
+    return true;
+  }
+
   const dispatch = claimed;
-  log("lead", dispatch.leadUsername, "campanha", campaign.nome);
+  log(
+    {
+      userId: campaign.userId,
+      dispatchId: dispatch.id,
+      action: "start",
+      lead: dispatch.leadUsername,
+    },
+    "campanha",
+    campaign.nome,
+  );
 
   const [session] = await db
     .select()
@@ -249,17 +328,27 @@ export async function processNextDispatch(): Promise<boolean> {
       })
       .where(eq(campaigns.id, campaign.id));
 
-    log("sent ok", dispatch.leadUsername);
+    log(
+      { userId: campaign.userId, dispatchId: dispatch.id, action: "sent" },
+      "sent ok",
+      dispatch.leadUsername,
+    );
 
     const minMs = (campaign.minDelayMin || 3) * 60 * 1000;
     const maxMs = Math.max(minMs, (campaign.maxDelayMin || 8) * 60 * 1000);
     const wait = randBetween(minMs, maxMs);
-    log("sleep", Math.round(wait / 1000), "s");
+    log(
+      { userId: campaign.userId, action: "sleep", seconds: Math.round(wait / 1000) },
+      "sleep",
+    );
     await sleep(wait);
   } catch (e) {
     const err = e as Error & { fatal?: boolean; code?: string };
     const msg = err.message || String(e);
-    log("error", msg);
+    log(
+      { userId: campaign.userId, dispatchId: dispatch.id, action: "error", error: msg },
+      msg,
+    );
     const fatal = !!err.fatal || err.code === "AUTH";
     await db
       .update(campaignDispatches)
@@ -301,7 +390,10 @@ export async function processNextDispatch(): Promise<boolean> {
       .update(campaigns)
       .set({ status: "finished", atualizadoEm: new Date() })
       .where(eq(campaigns.id, campaign.id));
-    log("campanha finished", campaign.id);
+    log(
+      { userId: campaign.userId, action: "campaign_finished", campaignId: campaign.id },
+      "campanha finished",
+    );
   }
 
   return true;

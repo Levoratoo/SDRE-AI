@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { extractions } from "@/db/schema";
+import { isUserActive } from "@/lib/account";
 import { getSession } from "@/lib/session";
 
 function normalizeUsername(raw: string) {
@@ -17,6 +18,13 @@ export async function POST(req: Request) {
   const session = await getSession();
   if (!session) {
     return NextResponse.json({ ok: false, erro: "Não autenticado" }, { status: 401 });
+  }
+
+  if (!(await isUserActive(session.user.id))) {
+    return NextResponse.json(
+      { ok: false, erro: "Conta suspensa — contate o suporte." },
+      { status: 403 },
+    );
   }
 
   const body = (await req.json().catch(() => ({}))) as {
@@ -71,6 +79,6 @@ export async function POST(req: Request) {
       perfil_alvo_username: row.perfilAlvoUsername,
     },
     aviso:
-      "Fila criada. Com a extensão ligada e sessão do IG sincronizada, a extração inicia sozinha.",
+      "Fila criada. O worker na VPS processa automaticamente quando a sessão IG está em Minha Conta.",
   });
 }

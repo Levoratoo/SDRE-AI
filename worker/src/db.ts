@@ -37,6 +37,17 @@ export const dispatchStatusEnum = pgEnum("dispatch_status", [
   "skipped",
 ]);
 
+export const accountStatusEnum = pgEnum("account_status", [
+  "active",
+  "trial",
+  "suspended",
+]);
+
+export const users = pgTable("user", {
+  id: text("id").primaryKey(),
+  accountStatus: accountStatusEnum("account_status").notNull().default("active"),
+});
+
 export const igSessions = pgTable("ig_sessions", {
   id: uuid("id").defaultRandom().primaryKey(),
   userId: text("user_id").notNull(),
@@ -135,6 +146,7 @@ if (!url) throw new Error("DATABASE_URL obrigatória no worker");
 
 export const db = drizzle(neon(url), {
   schema: {
+    users,
     igSessions,
     extractions,
     leads,

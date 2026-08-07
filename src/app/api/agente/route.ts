@@ -6,8 +6,10 @@ import {
   ensureAgentSettings,
   newVerifyToken,
   newWebhookSecret,
+  callbackUrlFor,
   toPublicAgent,
 } from "@/lib/agent";
+import { isUserActive } from "@/lib/account";
 import { getSession } from "@/lib/session";
 
 export async function GET(req: Request) {
@@ -17,6 +19,34 @@ export async function GET(req: Request) {
   }
 
   const action = new URL(req.url).searchParams.get("action") || "get";
+
+  if (action === "test_webhook") {
+    const row = await ensureAgentSettings(session.user.id);
+    const callback = callbackUrlFor(row.webhookSecret);
+    const testUrl = new URL(callback);
+    testUrl.searchParams.set("hub.mode", "subscribe");
+    testUrl.searchParams.set("hub.verify_token", row.verifyToken);
+    testUrl.searchParams.set("hub.challenge", "sdre_verify_test_ok");
+
+    try {
+      const res = await fetch(testUrl.toString(), { method: "GET" });
+      const body = await res.text();
+      const ok = res.status === 200 && body === "sdre_verify_test_ok";
+      return NextResponse.json({
+        ok,
+        status: res.status,
+        detail: ok
+          ? "Callback respondeu corretamente ao verify token."
+          : `Resposta inesperada (${res.status}): ${body.slice(0, 120)}`,
+      });
+    } catch (e) {
+      return NextResponse.json({
+        ok: false,
+        detail: e instanceof Error ? e.message : "Falha ao testar URL",
+      });
+    }
+  }
+
   if (action !== "get") {
     return NextResponse.json({ ok: false, erro: "Ação inválida" }, { status: 400 });
   }
@@ -29,6 +59,13 @@ export async function POST(req: Request) {
   const session = await getSession();
   if (!session) {
     return NextResponse.json({ ok: false, erro: "Não autenticado" }, { status: 401 });
+  }
+
+  if (!(await isUserActive(session.user.id))) {
+    return NextResponse.json(
+      { ok: false, erro: "Conta suspensa — contate o suporte." },
+      { status: 403 },
+    );
   }
 
   const action = new URL(req.url).searchParams.get("action") || "update";

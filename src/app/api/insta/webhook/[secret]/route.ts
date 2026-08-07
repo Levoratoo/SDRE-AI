@@ -8,6 +8,7 @@ import {
   campaigns,
 } from "@/db/schema";
 import { generateAgentReply } from "@/lib/openai";
+import { isUserActive } from "@/lib/account";
 
 type AgentRow = typeof agentSettings.$inferSelect;
 
@@ -94,6 +95,7 @@ async function processWebhook(
   payload: { object?: string; entry?: MetaEntry[] } | null,
 ) {
   let row = initial;
+  if (!(await isUserActive(row.userId))) return;
   if (!row.ativo) return;
   if (!payload || payload.object !== "instagram") return;
   const accessToken = row.metaAccessToken;

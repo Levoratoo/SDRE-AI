@@ -45,6 +45,8 @@ export function AgenteClient() {
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const [testingWebhook, setTestingWebhook] = useState(false);
+  const [webhookTest, setWebhookTest] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     const j = await api("get");
@@ -97,6 +99,24 @@ export function AgenteClient() {
       setErr(e instanceof Error ? e.message : "Erro");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function onTestWebhook() {
+    setTestingWebhook(true);
+    setWebhookTest(null);
+    setErr(null);
+    try {
+      const j = await api("test_webhook");
+      setWebhookTest(
+        j.ok
+          ? j.detail || "Webhook OK."
+          : j.detail || j.erro || "Falha no teste.",
+      );
+    } catch (e) {
+      setWebhookTest(e instanceof Error ? e.message : "Erro");
+    } finally {
+      setTestingWebhook(false);
     }
   }
 
@@ -161,7 +181,8 @@ export function AgenteClient() {
         <h2>1. Configuração do Webhook (Facebook Developer)</h2>
         <p className="muted">
           Cole os valores abaixo no app do Facebook, seção Webhooks → Instagram →
-          Editar.
+          Editar. Se você migrou do Evolua, use <strong>estes</strong> valores —
+          os tokens do Evolua não funcionam aqui.
         </p>
         <div className="field">
           <label>Callback URL</label>
@@ -202,6 +223,23 @@ export function AgenteClient() {
         >
           Gerar novos tokens
         </button>
+        <div className="row" style={{ gap: 12, alignItems: "center", marginTop: 12 }}>
+          <button
+            type="button"
+            className="btn secondary small"
+            disabled={testingWebhook}
+            onClick={() => void onTestWebhook()}
+          >
+            {testingWebhook ? "Testando…" : "Testar verificação"}
+          </button>
+          {webhookTest ? (
+            <span className="muted" style={{ margin: 0 }}>{webhookTest}</span>
+          ) : null}
+        </div>
+        <p className="muted" style={{ marginTop: 10, marginBottom: 0 }}>
+          O teste confirma que a Callback URL responde ao verify token deste painel
+          (não valida o app Meta no Facebook).
+        </p>
       </div>
 
       <div className="card">

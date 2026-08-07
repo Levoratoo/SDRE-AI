@@ -2,6 +2,7 @@ import { and, count, eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { campaignDispatches, campaigns } from "@/db/schema";
+import { isUserActive } from "@/lib/account";
 import { getSession } from "@/lib/session";
 
 type Ctx = { params: Promise<{ id: string }> };
@@ -64,6 +65,12 @@ export async function PATCH(req: Request, ctx: Ctx) {
   }
 
   if (action === "start" || action === "resume") {
+    if (!(await isUserActive(session.user.id))) {
+      return NextResponse.json(
+        { ok: false, erro: "Conta suspensa — contate o suporte." },
+        { status: 403 },
+      );
+    }
     if (camp.status === "finished" || camp.status === "cancelled") {
       return NextResponse.json(
         { ok: false, erro: "Campanha já encerrada" },

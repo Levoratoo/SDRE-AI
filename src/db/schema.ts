@@ -42,6 +42,12 @@ export const dispatchStatusEnum = pgEnum("dispatch_status", [
   "skipped",
 ]);
 
+export const accountStatusEnum = pgEnum("account_status", [
+  "active",
+  "trial",
+  "suspended",
+]);
+
 /* ---------- Better Auth ---------- */
 
 export const user = pgTable("user", {
@@ -50,6 +56,9 @@ export const user = pgTable("user", {
   email: text("email").notNull().unique(),
   emailVerified: boolean("email_verified").notNull().default(false),
   image: text("image"),
+  accountStatus: accountStatusEnum("account_status").notNull().default("active"),
+  onboardingDismissed: boolean("onboarding_dismissed").notNull().default(false),
+  accountNotes: text("account_notes"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });

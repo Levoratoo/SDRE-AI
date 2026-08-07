@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import { OnboardingWizard } from "@/components/onboarding-wizard";
 
 type Stats = {
   extracoes: number;
@@ -68,6 +69,8 @@ export function DashboardLive({
 
   return (
     <>
+      <OnboardingWizard />
+
       <div className="dash-top">
         <div>
           <h1 className="page-title gradient-text">Olá, {firstName}</h1>
