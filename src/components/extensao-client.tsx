@@ -46,7 +46,7 @@ export function ExtensaoClient() {
       ? window.location.origin
       : process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 
-  const zipUrl = `${panelUrl}/levorato-prospect-extension.zip`;
+  const zipUrl = `${panelUrl}/downloads/levorato-prospect-extension.zip`;
 
   useEffect(() => {
     let cancelled = false;

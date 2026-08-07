@@ -14,8 +14,8 @@ const NAV = [
   { href: "/stories", label: "Stories", icon: "story" },
   { href: "/campanhas", label: "Campanhas", icon: "rocket" },
   { href: "/agente", label: "Agente IA", icon: "bot" },
+  { href: "/downloads", label: "Downloads", icon: "download" },
   { href: "/conta", label: "Minha Conta", icon: "user" },
-  { href: "/extensao", label: "Extensão (opc.)", icon: "puzzle" },
 ] as const;
 
 function NavIcon({ name }: { name: (typeof NAV)[number]["icon"] }) {
@@ -102,6 +102,14 @@ function NavIcon({ name }: { name: (typeof NAV)[number]["icon"] }) {
       return (
         <svg {...common}>
           <path d="M10 4h4v3a2 2 0 1 0 2 2h3v4h-3a2 2 0 1 0-2 2v3h-4v-3a2 2 0 1 0-2-2H5v-4h3a2 2 0 1 0 2-2V4z" />
+        </svg>
+      );
+    case "download":
+      return (
+        <svg {...common}>
+          <path d="M12 3v12" />
+          <path d="m7 10 5 5 5-5" />
+          <path d="M5 21h14" />
         </svg>
       );
     default: {

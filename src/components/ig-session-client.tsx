@@ -213,7 +213,7 @@ export function IgSessionClient() {
       {!extPresent ? (
         <p className="muted" style={{ fontSize: 13, marginTop: 12, marginBottom: 0 }}>
           Precisa da extensão no Chrome —{" "}
-          <Link className="link-accent" href="/extensao">
+          <Link className="link-accent" href="/downloads">
             baixar e instalar
           </Link>
           . Depois, abra instagram.com logado e clique no botão acima.

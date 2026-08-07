@@ -81,7 +81,7 @@ const TUTORIALS: Record<TutorialKey, Tutorial> = {
     title: "Extensão",
     youtubeId: "jymCuJzcWo4",
     videoSrc: null,
-    backHref: "/extensao",
+    backHref: "/downloads",
   },
   minha_conta: {
     key: "minha_conta",
@@ -101,6 +101,7 @@ const PATH_TO_KEY: Record<string, TutorialKey> = {
   "/stories": "stories",
   "/campanhas": "campanhas",
   "/agente": "agente",
+  "/downloads": "extensao",
   "/extensao": "extensao",
   "/conta": "minha_conta",
 };

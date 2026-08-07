@@ -9,11 +9,14 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.join(__dirname, "..");
 const extDir = path.join(root, "extension");
 const publicDir = path.join(root, "public");
+const downloadsDir = path.join(publicDir, "downloads");
 const keyPath = path.join(root, "extension.pem");
 const outCrx = path.join(publicDir, "levorato-prospect.crx");
 const outZip = path.join(publicDir, "levorato-prospect-extension.zip");
+const outDownloadsZip = path.join(downloadsDir, "levorato-prospect-extension.zip");
 
 fs.mkdirSync(publicDir, { recursive: true });
+fs.mkdirSync(downloadsDir, { recursive: true });
 
 if (!fs.existsSync(keyPath)) {
   const { privateKey } = generateKeyPairSync("rsa", {
@@ -47,3 +50,6 @@ execSync(
 );
 fs.rmSync(zipStaging, { recursive: true, force: true });
 console.log("ZIP:", outZip, `(${fs.statSync(outZip).size} bytes)`);
+
+fs.copyFileSync(outZip, outDownloadsZip);
+console.log("Downloads:", outDownloadsZip, `(${fs.statSync(outDownloadsZip).size} bytes)`);
