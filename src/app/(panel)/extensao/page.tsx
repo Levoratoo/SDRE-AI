@@ -5,7 +5,8 @@ export default function ExtensaoPage() {
     <>
       <h1 className="page-title orange-text">Extensão</h1>
       <p className="page-sub">
-        Instale no Opera ou Chrome, cole a URL do painel e a API Key.
+        Opcional. O fluxo completo (sessão + extração + campanha) já roda pelo
+        painel e pela VPS — use a extensão só se quiser o atalho no navegador.
       </p>
       <ExtensaoClient />
     </>

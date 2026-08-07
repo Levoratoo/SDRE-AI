@@ -15,7 +15,7 @@ const NAV = [
   { href: "/campanhas", label: "Campanhas", icon: "rocket" },
   { href: "/agente", label: "Agente IA", icon: "bot" },
   { href: "/conta", label: "Minha Conta", icon: "user" },
-  { href: "/extensao", label: "Extensão Opera", icon: "puzzle" },
+  { href: "/extensao", label: "Extensão (opc.)", icon: "puzzle" },
 ] as const;
 
 function NavIcon({ name }: { name: (typeof NAV)[number]["icon"] }) {

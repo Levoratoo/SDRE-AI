@@ -1,4 +1,5 @@
 import { ContaClient } from "@/components/conta-client";
+import { IgSessionClient } from "@/components/ig-session-client";
 import { requireSession } from "@/lib/session";
 
 export default async function ContaPage() {
@@ -7,7 +8,10 @@ export default async function ContaPage() {
   return (
     <>
       <h1 className="page-title gradient-text">Minha Conta</h1>
-      <p className="page-sub">Gerencie seus dados de acesso.</p>
+      <p className="page-sub">
+        Dados de acesso e sessão do Instagram para a VPS (sem extensão).
+      </p>
+      <IgSessionClient />
       <ContaClient email={session.user.email} initialName={session.user.name} />
     </>
   );

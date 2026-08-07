@@ -77,7 +77,7 @@ export function ExtracaoQueueForm() {
       <h2>Nova extração</h2>
       <p className="muted" style={{ marginTop: 0 }}>
         Cole o @ aqui no painel — a fila roda na VPS e o progresso atualiza ao
-        vivo abaixo. Extensão só para sincronizar a sessão IG uma vez.
+        vivo abaixo. Sessão IG: Minha Conta → colar sessionid (sem extensão).
       </p>
       <form onSubmit={onSubmit}>
         <div className="field">

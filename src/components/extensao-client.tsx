@@ -89,6 +89,18 @@ export function ExtensaoClient() {
   return (
     <>
       <div className="card">
+        <h2>Preferência: sem extensão</h2>
+        <p className="muted" style={{ marginBottom: 10 }}>
+          Para rodar tudo pelo painel + VPS, vá em{" "}
+          <a className="link-accent" href="/conta">
+            Minha Conta
+          </a>{" "}
+          e cole o <strong>sessionid</strong> do Instagram. A extensão abaixo é
+          só atalho opcional.
+        </p>
+      </div>
+
+      <div className="card">
         <h2>1. Instale a extensão (Opera)</h2>
         <p className="muted">
           Copie o link e cole na barra do Opera — ele baixa o `.crx`
@@ -213,16 +225,16 @@ export function ExtensaoClient() {
       </div>
 
       <div className="card">
-        <h2>4. Ativar e usar</h2>
+        <h2>4. Ativar e usar (opcional)</h2>
         <ol className="muted" style={{ paddingLeft: 18, lineHeight: 1.7 }}>
           <li>Abra a extensão → ⚙ → cole URL + API Key → Testar e salvar.</li>
           <li>
-            Faça login no Instagram no Opera (conta de prospecção) →{" "}
-            <strong>Sincronizar sessão</strong>.
+            Login no Instagram → <strong>Sincronizar sessão</strong> (ou cole o
+            sessionid em Minha Conta).
           </li>
           <li>
-            No painel, em <strong>Extrações</strong>, cole o @ e clique em
-            Extrair agora — a extensão abre o perfil e captura sozinha.
+            Extrações e campanhas: use o <strong>painel</strong> — a VPS
+            processa 24/7.
           </li>
         </ol>
       </div>
