@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { requireSession } from "@/lib/session";
-import { getTutorial } from "@/lib/tutorials";
+import { getTutorial, tutorialHasVideo } from "@/lib/tutorials";
 
 export default async function TutorialPage({
   searchParams,
@@ -10,9 +10,13 @@ export default async function TutorialPage({
   await requireSession();
   const { p } = await searchParams;
   const tutorial = getTutorial(p);
-  const embed =
-    tutorial.youtubeId != null
-      ? `https://www.youtube.com/embed/${tutorial.youtubeId}?autoplay=1&rel=0&modestbranding=1`
+  const hasVideo = tutorialHasVideo(tutorial);
+
+  // Preferência: MP4 próprio (sem links/marca de terceiros na tela).
+  const localSrc = tutorial.videoSrc;
+  const youtubeEmbed =
+    !localSrc && tutorial.youtubeId
+      ? `https://www.youtube.com/embed/${tutorial.youtubeId}?autoplay=1&rel=0&modestbranding=1&controls=1`
       : null;
 
   return (
@@ -27,28 +31,45 @@ export default async function TutorialPage({
         </Link>
       </div>
 
-      {embed ? (
+      {localSrc ? (
+        <div className="tut-wrap">
+          <div className="tut-player">
+            <video
+              src={localSrc}
+              controls
+              autoPlay
+              playsInline
+              controlsList="nodownload"
+              title={`Tutorial — ${tutorial.title}`}
+            />
+          </div>
+        </div>
+      ) : youtubeEmbed ? (
         <div className="tut-wrap">
           <div className="tut-player">
             <iframe
-              src={embed}
+              src={youtubeEmbed}
               title={`Tutorial — ${tutorial.title}`}
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
               allowFullScreen
+              referrerPolicy="strict-origin-when-cross-origin"
             />
           </div>
         </div>
       ) : (
         <div className="tut-empty">
           <div className="tut-empty-icon">▶</div>
-          <h2>Tutorial em breve</h2>
+          <h2>Tutorial em produção</h2>
           <p>
-            Ainda não temos o vídeo desta página. Volte ao painel e continue
-            usando o produto normalmente.
+            Estamos gravando os vídeos oficiais do Levorato Prospect — sem marca
+            ou links de terceiros na tela. Em breve esta página terá o passo a
+            passo completo de {tutorial.title}.
           </p>
-          <Link href={tutorial.backHref}>Voltar</Link>
+          <Link href={tutorial.backHref}>Voltar ao painel</Link>
         </div>
       )}
+
+      {!hasVideo ? null : null}
     </div>
   );
 }

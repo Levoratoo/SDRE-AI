@@ -13,69 +13,88 @@ export type TutorialKey =
 export type Tutorial = {
   key: TutorialKey;
   title: string;
+  /** YouTube ID só de vídeos Levorato (sem marca de terceiros). */
   youtubeId: string | null;
+  /** MP4 hospedado em /public/tutorials/... (preferível — sem links externos). */
+  videoSrc: string | null;
   backHref: string;
 };
 
+/**
+ * Tutoriais oficiais Levorato Prospect.
+ * Não usar vídeos de terceiros (aparecem nome/marca/links na tela).
+ * Para ativar: coloque o MP4 em public/tutorials/ e preencha videoSrc,
+ * ou um YouTube ID do canal Levorato em youtubeId.
+ */
 const TUTORIALS: Record<TutorialKey, Tutorial> = {
   dashboard: {
     key: "dashboard",
     title: "Início",
-    youtubeId: "rKbQUxP6tSo",
+    youtubeId: null,
+    videoSrc: null,
     backHref: "/dashboard",
   },
   extracoes: {
     key: "extracoes",
     title: "Extrações",
-    youtubeId: "jymCuJzcWo4",
+    youtubeId: null,
+    videoSrc: null,
     backHref: "/extracoes",
   },
   leads: {
     key: "leads",
     title: "Base de leads",
-    youtubeId: "jymCuJzcWo4",
+    youtubeId: null,
+    videoSrc: null,
     backHref: "/leads",
   },
   mensagens_dm: {
     key: "mensagens_dm",
     title: "Mensagens DM",
-    youtubeId: "fxXT7nn3ilE",
+    youtubeId: null,
+    videoSrc: null,
     backHref: "/mensagens",
   },
   comentarios: {
     key: "comentarios",
     title: "Comentários",
-    youtubeId: "fxXT7nn3ilE",
+    youtubeId: null,
+    videoSrc: null,
     backHref: "/comentarios",
   },
   stories: {
     key: "stories",
     title: "Stories",
-    youtubeId: "fxXT7nn3ilE",
+    youtubeId: null,
+    videoSrc: null,
     backHref: "/stories",
   },
   campanhas: {
     key: "campanhas",
     title: "Campanhas",
-    youtubeId: "OgNMVF4Byg8",
+    youtubeId: null,
+    videoSrc: null,
     backHref: "/campanhas",
   },
   agente: {
     key: "agente",
     title: "Agente IA",
-    youtubeId: "5Tn0DNt1On8",
+    youtubeId: null,
+    videoSrc: null,
     backHref: "/agente",
   },
   extensao: {
     key: "extensao",
     title: "Extensão",
-    youtubeId: "jymCuJzcWo4",
+    youtubeId: null,
+    videoSrc: null,
     backHref: "/extensao",
   },
   minha_conta: {
     key: "minha_conta",
     title: "Minha Conta",
     youtubeId: null,
+    videoSrc: null,
     backHref: "/conta",
   },
 };
@@ -98,6 +117,10 @@ export function getTutorial(key: string | null | undefined): Tutorial {
     return TUTORIALS[key as TutorialKey];
   }
   return TUTORIALS.dashboard;
+}
+
+export function tutorialHasVideo(t: Tutorial) {
+  return Boolean(t.videoSrc || t.youtubeId);
 }
 
 export function tutorialKeyFromPath(pathname: string): TutorialKey {
