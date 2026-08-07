@@ -78,13 +78,16 @@
                         <div class="field-row">
                             <label class="field">
                                 <span class="field-label">Delay mín (s)</span>
-                                <input type="number" id="extDelayMin" value="2" min="1" max="60" step="0.5">
+                                <input type="number" id="extDelayMin" value="0.7" min="0.4" max="60" step="0.1">
                             </label>
                             <label class="field">
                                 <span class="field-label">Delay máx (s)</span>
-                                <input type="number" id="extDelayMax" value="5" min="2" max="120" step="0.5">
+                                <input type="number" id="extDelayMax" value="1.6" min="0.5" max="120" step="0.1">
                             </label>
                         </div>
+                        <p class="field-hint" style="margin:4px 0 0;opacity:.75;font-size:11px">
+                            Rápido: 0.5–1.2s · Seguro: 2–5s. Muito baixo pode dar rate-limit do IG.
+                        </p>
                     </div>
                     <button class="btn primary" id="btnExtrair">Iniciar extração</button>
                 </div>

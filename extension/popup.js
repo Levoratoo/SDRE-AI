@@ -306,12 +306,12 @@ async function onIniciarExtracao() {
     const nome  = $('extNome').value.trim() || ('@' + currentProfile.username);
     const rawLimite = $('extLimite').value.trim();
     const limite = rawLimite ? parseInt(rawLimite, 10) : null;
-    const delayMin = parseFloat($('extDelayMin').value) || 2;
-    const delayMax = parseFloat($('extDelayMax').value) || 5;
+    const delayMin = parseFloat($('extDelayMin').value) || 0.7;
+    const delayMax = parseFloat($('extDelayMax').value) || 1.6;
 
     if (limite !== null && (isNaN(limite) || limite < 1)) return toast('Limite inválido.', 'err');
     if (delayMin >= delayMax) return toast('Delay mínimo tem que ser menor que o máximo.', 'err');
-    if (delayMin < 1) return toast('Delay mínimo muito baixo — mínimo 1 segundo.', 'err');
+    if (delayMin < 0.4) return toast('Delay mínimo muito baixo — mínimo 0,4s.', 'err');
 
     await savePreferencias(delayMin, delayMax);
 

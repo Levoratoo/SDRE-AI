@@ -3,11 +3,20 @@
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 
+const SPEED = {
+  turbo: { label: "Turbo", delayMinMs: 500, delayMaxMs: 1100, hint: "~2–3x mais rápido; risco de rate-limit" },
+  rapido: { label: "Rápido", delayMinMs: 700, delayMaxMs: 1600, hint: "padrão recomendado" },
+  seguro: { label: "Seguro", delayMinMs: 2000, delayMaxMs: 4500, hint: "mais lento, menos bloqueio" },
+} as const;
+
+type SpeedKey = keyof typeof SPEED;
+
 export function ExtracaoQueueForm() {
   const router = useRouter();
   const [username, setUsername] = useState("");
   const [nome, setNome] = useState("");
   const [limite, setLimite] = useState("");
+  const [speed, setSpeed] = useState<SpeedKey>("rapido");
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -18,6 +27,7 @@ export function ExtracaoQueueForm() {
     setMsg(null);
     setErr(null);
     try {
+      const preset = SPEED[speed];
       const r = await fetch("/api/extracoes/queue", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -25,6 +35,8 @@ export function ExtracaoQueueForm() {
           username,
           nome: nome || undefined,
           limite: limite ? Number(limite) : null,
+          delayMinMs: preset.delayMinMs,
+          delayMaxMs: preset.delayMaxMs,
         }),
       });
       const j = await r.json();
@@ -48,8 +60,8 @@ export function ExtracaoQueueForm() {
     <div className="card" style={{ marginBottom: 16 }}>
       <h2>Extrair seguidores</h2>
       <p className="muted" style={{ marginTop: 0 }}>
-        Cole o @ do Instagram. Com a extensão instalada, sessão sincronizada e
-        Opera aberto, a captura começa automaticamente.
+        Cole o @ do Instagram. Worker na VPS ou extensão no Opera processam a
+        fila.
       </p>
       <form onSubmit={onSubmit}>
         <div className="field">
@@ -81,6 +93,25 @@ export function ExtracaoQueueForm() {
             value={limite}
             onChange={(e) => setLimite(e.target.value)}
           />
+        </div>
+        <div className="field">
+          <label>Velocidade</label>
+          <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+            {(Object.keys(SPEED) as SpeedKey[]).map((key) => (
+              <button
+                key={key}
+                type="button"
+                className={speed === key ? "btn primary small" : "btn ghost small"}
+                onClick={() => setSpeed(key)}
+              >
+                {SPEED[key].label}
+              </button>
+            ))}
+          </div>
+          <p className="muted" style={{ margin: "8px 0 0", fontSize: 13 }}>
+            {SPEED[speed].hint} ({SPEED[speed].delayMinMs}–{SPEED[speed].delayMaxMs}{" "}
+            ms entre páginas de ~50 leads)
+          </p>
         </div>
         {msg ? <p className="ok">{msg}</p> : null}
         {err ? <p className="err">{err}</p> : null}

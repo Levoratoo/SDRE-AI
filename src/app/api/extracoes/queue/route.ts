@@ -39,13 +39,13 @@ export async function POST(req: Request) {
   const limite =
     body.limite && body.limite > 0 ? Math.floor(body.limite) : null;
   const delayMinMs =
-    body.delayMinMs && body.delayMinMs >= 500
+    body.delayMinMs && body.delayMinMs >= 400
       ? Math.floor(body.delayMinMs)
-      : 2200;
+      : 700;
   const delayMaxMs =
     body.delayMaxMs && body.delayMaxMs > delayMinMs
       ? Math.floor(body.delayMaxMs)
-      : 4800;
+      : 1600;
 
   const [row] = await db
     .insert(extractions)

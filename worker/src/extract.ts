@@ -138,7 +138,7 @@ export async function processNextExtraction(): Promise<boolean> {
       `https://www.instagram.com/${encodeURIComponent(claimed.perfilAlvoUsername)}/`,
       { waitUntil: "domcontentloaded", timeout: 60000 },
     );
-    await sleep(2500);
+    await sleep(800);
 
     const profile = await fetchProfile(page, claimed.perfilAlvoUsername);
 
@@ -154,13 +154,13 @@ export async function processNextExtraction(): Promise<boolean> {
       })
       .where(eq(extractions.id, claimed.id));
 
-    const delayMin = claimed.delayMinMs && claimed.delayMinMs >= 500
+    const delayMin = claimed.delayMinMs && claimed.delayMinMs >= 400
       ? claimed.delayMinMs
-      : 2200;
+      : 700;
     const delayMax =
       claimed.delayMaxMs && claimed.delayMaxMs > delayMin
         ? claimed.delayMaxMs
-        : 4800;
+        : 1600;
     const limite = claimed.limite && claimed.limite > 0 ? claimed.limite : null;
 
     let maxId: string | null = null;

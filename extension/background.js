@@ -18,9 +18,9 @@ const STORAGE_DISP = 'dispatchState';
 const ALARM_EXT    = 'pi_ext_wake';
 const ALARM_DISP   = 'pi_disp_wake';
 const ALARM_QUEUE  = 'pi_queue_poll';
-const BATCH_SMALL  = 15;
-const DEFAULT_DELAY_MIN = 2200;
-const DEFAULT_DELAY_MAX = 4800;
+const BATCH_SMALL  = 50; // 1 página IG ≈ 50 leads → envia lote inteiro
+const DEFAULT_DELAY_MIN = 700;
+const DEFAULT_DELAY_MAX = 1600;
 
 const log  = (...args) => console.log('[PI]', ...args);
 const logD = (...args) => console.log('[PI-Disp]', ...args);
@@ -169,7 +169,7 @@ function sanitizeForPayload(user) {
 }
 
 function delayExtFromConfig(config) {
-    const min = (config?.delayMinMs && config.delayMinMs >= 500) ? config.delayMinMs : DEFAULT_DELAY_MIN;
+    const min = (config?.delayMinMs && config.delayMinMs >= 400) ? config.delayMinMs : DEFAULT_DELAY_MIN;
     const max = (config?.delayMaxMs && config.delayMaxMs > min) ? config.delayMaxMs : DEFAULT_DELAY_MAX;
     return Math.floor(min + Math.random() * (max - min));
 }
