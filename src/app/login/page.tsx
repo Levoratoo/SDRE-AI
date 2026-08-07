@@ -34,8 +34,8 @@ export default function LoginPage() {
         <div className="brand" style={{ marginBottom: 18 }}>
           <span className="brand-mark">LP</span>
           <div>
-            <div className="brand-name">Levorato Prospect</div>
-            <div className="brand-sub">Bem-vindo de volta</div>
+            <div className="brand-name">Levorato</div>
+            <div className="brand-sub">Prospect Insta</div>
           </div>
         </div>
 

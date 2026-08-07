@@ -1,4 +1,5 @@
 import { desc, eq } from "drizzle-orm";
+import Link from "next/link";
 import { ExtracaoQueueForm } from "@/components/extracao-queue-form";
 import { db } from "@/db";
 import { extractions } from "@/db/schema";
@@ -21,6 +22,24 @@ const STATUS_LABEL: Record<string, string> = {
   error: "Erro",
 };
 
+function progressOf(r: {
+  capturados: number;
+  perfilAlvoSeguidores: number | null;
+  limite: number | null;
+  status: string;
+}) {
+  const meta =
+    r.limite && r.limite > 0
+      ? r.limite
+      : r.perfilAlvoSeguidores && r.perfilAlvoSeguidores > 0
+        ? r.perfilAlvoSeguidores
+        : null;
+  if (!meta) {
+    return r.status === "finished" ? 100 : r.capturados > 0 ? 8 : 0;
+  }
+  return Math.min(100, Math.round((r.capturados / meta) * 100));
+}
+
 export default async function ExtracoesPage() {
   const session = await requireSession();
   const rows = await db
@@ -32,18 +51,31 @@ export default async function ExtracoesPage() {
 
   return (
     <>
-      <h1 className="page-title">Extrações</h1>
-      <p className="page-sub">
-        Enfileire um @ aqui. Com o worker na VPS Hostinger ligado, a extração
-        roda 24/7 mesmo com o PC desligado (precisa ter sincronizado a sessão IG
-        uma vez). Sem worker, a extensão no Opera também processa a fila.
-      </p>
+      <div className="page-head">
+        <div>
+          <h1 className="page-title gradient-text">Extrações</h1>
+          <p className="page-sub">
+            Extraia seguidores de perfis do Instagram. O worker na VPS ou a
+            extensão processam a fila automaticamente.
+          </p>
+        </div>
+        <div className="page-actions">
+          <Link className="btn primary" href="#nova-extracao">
+            Nova extração pela extensão
+          </Link>
+        </div>
+      </div>
 
-      <ExtracaoQueueForm />
+      <div id="nova-extracao">
+        <ExtracaoQueueForm />
+      </div>
 
-      <div className="card" style={{ padding: 0, overflow: "hidden" }}>
+      <div className="card table-card">
+        <div className="section-head">
+          <h2>Histórico</h2>
+        </div>
         {rows.length === 0 ? (
-          <p className="muted" style={{ padding: 22 }}>
+          <p className="muted" style={{ padding: 14 }}>
             Nenhuma extração ainda.
           </p>
         ) : (
@@ -51,38 +83,64 @@ export default async function ExtracoesPage() {
             <table className="data-table">
               <thead>
                 <tr>
-                  <th>Nome</th>
                   <th>Perfil-alvo</th>
                   <th>Seguidores</th>
                   <th>Capturados</th>
+                  <th>Progresso</th>
                   <th>Status</th>
                   <th>Iniciada</th>
                   <th>Finalizada</th>
+                  <th></th>
                 </tr>
               </thead>
               <tbody>
-                {rows.map((r) => (
-                  <tr key={r.id}>
-                    <td>{r.nome}</td>
-                    <td className="mono">@{r.perfilAlvoUsername}</td>
-                    <td>
-                      {(r.perfilAlvoSeguidores || 0).toLocaleString("pt-BR")}
-                    </td>
-                    <td>{r.capturados.toLocaleString("pt-BR")}</td>
-                    <td>
-                      <span className={`pill status-${r.status}`}>
-                        {STATUS_LABEL[r.status] || r.status}
-                      </span>
-                      {r.erroMensagem ? (
-                        <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
-                          {r.erroMensagem}
+                {rows.map((r) => {
+                  const pct = progressOf(r);
+                  return (
+                    <tr key={r.id}>
+                      <td>
+                        <div className="mono" style={{ color: "#fff" }}>
+                          @{r.perfilAlvoUsername}
                         </div>
-                      ) : null}
-                    </td>
-                    <td>{fmtDate(r.iniciadoEm)}</td>
-                    <td>{fmtDate(r.finalizadoEm)}</td>
-                  </tr>
-                ))}
+                        <div className="muted" style={{ fontSize: 12 }}>
+                          {r.nome}
+                        </div>
+                      </td>
+                      <td>
+                        {(r.perfilAlvoSeguidores || 0).toLocaleString("pt-BR")}
+                      </td>
+                      <td>{r.capturados.toLocaleString("pt-BR")}</td>
+                      <td>
+                        <div className="progress">
+                          <div className="progress-bar">
+                            <span style={{ width: `${pct}%` }} />
+                          </div>
+                          <div className="progress-pct">{pct}%</div>
+                        </div>
+                      </td>
+                      <td>
+                        <span className={`pill status-${r.status}`}>
+                          {STATUS_LABEL[r.status] || r.status}
+                        </span>
+                        {r.erroMensagem ? (
+                          <div
+                            className="muted"
+                            style={{ fontSize: 12, marginTop: 4, maxWidth: 220 }}
+                          >
+                            {r.erroMensagem.slice(0, 80)}
+                          </div>
+                        ) : null}
+                      </td>
+                      <td>{fmtDate(r.iniciadoEm)}</td>
+                      <td>{fmtDate(r.finalizadoEm)}</td>
+                      <td>
+                        <Link className="action-pink" href="/leads">
+                          Ver leads
+                        </Link>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

@@ -36,6 +36,7 @@ export function CampanhasClient({ leadsCount }: { leadsCount: number }) {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [ok, setOk] = useState<string | null>(null);
+  const [showForm, setShowForm] = useState(false);
 
   const load = useCallback(async () => {
     const [m, c] = await Promise.all([
@@ -78,8 +79,9 @@ export function CampanhasClient({ leadsCount }: { leadsCount: number }) {
       });
       const j = await r.json();
       if (!j.ok) throw new Error(j.erro || "Erro");
-      setOk(`Campanha criada com ${j.campanha.total} leads. Clique em Play.`);
+      setOk(`Campanha criada com ${j.campanha.total} leads.`);
       setNome("");
+      setShowForm(false);
       await load();
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Erro");
@@ -126,195 +128,222 @@ export function CampanhasClient({ leadsCount }: { leadsCount: number }) {
 
   return (
     <>
-      <div className="card">
-        <h2>Nova campanha</h2>
-        <p className="muted" style={{ marginTop: 0 }}>
-          Base atual: <strong>{leadsCount.toLocaleString("pt-BR")}</strong> leads.
-          O Play roda no worker da VPS (PC pode estar off).
-        </p>
-        {msgs.length === 0 ? (
-          <p className="err">
-            Crie uma mensagem em <a href="/mensagens">Mensagens</a> antes.
+      <div className="page-head">
+        <div>
+          <h1 className="page-title gradient-text">Campanhas de Direct</h1>
+          <p className="page-sub">
+            Crie a fila e aperte Play — o worker na VPS dispara 24/7.
           </p>
-        ) : (
-          <form onSubmit={onCreate}>
-            <div className="field">
-              <label htmlFor="nome">Nome</label>
-              <input
-                id="nome"
-                value={nome}
-                onChange={(e) => setNome(e.target.value)}
-                placeholder="ex: Envios Box Talent"
-                required
-              />
-            </div>
-            <div className="field">
-              <label htmlFor="msg">Mensagem DM</label>
-              <select
-                id="msg"
-                value={messageId}
-                onChange={(e) => setMessageId(e.target.value)}
-                required
-                style={{
-                  background: "var(--bg)",
-                  border: "1px solid var(--line)",
-                  borderRadius: 8,
-                  color: "var(--text)",
-                  padding: "10px 12px",
-                  font: "inherit",
-                }}
-              >
-                {msgs.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.titulo}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="field">
-              <label htmlFor="limite">Quantidade de leads (mais recentes)</label>
-              <input
-                id="limite"
-                type="number"
-                min={1}
-                max={5000}
-                value={limiteLeads}
-                onChange={(e) => setLimiteLeads(e.target.value)}
-              />
-            </div>
-            <div className="field-row" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-              <div className="field">
-                <label htmlFor="min">Delay mín (minutos)</label>
-                <input
-                  id="min"
-                  type="number"
-                  min={1}
-                  value={minDelay}
-                  onChange={(e) => setMinDelay(e.target.value)}
-                />
-              </div>
-              <div className="field">
-                <label htmlFor="max">Delay máx (minutos)</label>
-                <input
-                  id="max"
-                  type="number"
-                  min={1}
-                  value={maxDelay}
-                  onChange={(e) => setMaxDelay(e.target.value)}
-                />
-              </div>
-            </div>
-            <label className="row" style={{ marginBottom: 14, gap: 8 }}>
-              <input
-                type="checkbox"
-                checked={seguir}
-                onChange={(e) => setSeguir(e.target.checked)}
-              />
-              <span>Seguir perfil após o DM</span>
-            </label>
-            {err ? <p className="err">{err}</p> : null}
-            {ok ? <p className="ok">{ok}</p> : null}
-            <button className="btn primary" type="submit" disabled={loading || !messageId}>
-              {loading ? "Criando…" : "Criar campanha"}
-            </button>
-          </form>
-        )}
+        </div>
+        <div className="page-actions">
+          <button
+            type="button"
+            className="btn primary"
+            onClick={() => setShowForm((v) => !v)}
+          >
+            Criar campanha
+          </button>
+        </div>
       </div>
 
-      <div className="card" style={{ marginTop: 16, padding: 0, overflow: "hidden" }}>
-        <div style={{ padding: "16px 22px 0" }}>
-          <h2 style={{ margin: 0 }}>Minhas campanhas</h2>
+      {err ? <div className="alert danger">{err}</div> : null}
+      {ok ? <p className="ok">{ok}</p> : null}
+
+      {showForm ? (
+        <div className="card">
+          <h2>Nova campanha</h2>
+          <p className="muted" style={{ marginTop: 0 }}>
+            Base atual: <strong>{leadsCount.toLocaleString("pt-BR")}</strong>{" "}
+            leads.
+          </p>
+          {msgs.length === 0 ? (
+            <p className="err">
+              Crie uma mensagem em <a className="action-pink" href="/mensagens">Mensagens</a> antes.
+            </p>
+          ) : (
+            <form onSubmit={onCreate}>
+              <div className="field">
+                <label htmlFor="nome">Nome da campanha</label>
+                <input
+                  id="nome"
+                  value={nome}
+                  onChange={(e) => setNome(e.target.value)}
+                  placeholder="ex: Envios Box Talent"
+                  required
+                />
+              </div>
+              <div className="field">
+                <label htmlFor="msg">Mensagens</label>
+                <select
+                  id="msg"
+                  value={messageId}
+                  onChange={(e) => setMessageId(e.target.value)}
+                  required
+                >
+                  {msgs.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.titulo}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="field">
+                <label htmlFor="limite">Quantidade de leads</label>
+                <input
+                  id="limite"
+                  type="number"
+                  min={1}
+                  max={5000}
+                  value={limiteLeads}
+                  onChange={(e) => setLimiteLeads(e.target.value)}
+                />
+              </div>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  gap: 12,
+                }}
+              >
+                <div className="field">
+                  <label htmlFor="min">Delay mín (min)</label>
+                  <input
+                    id="min"
+                    type="number"
+                    min={1}
+                    value={minDelay}
+                    onChange={(e) => setMinDelay(e.target.value)}
+                  />
+                </div>
+                <div className="field">
+                  <label htmlFor="max">Delay máx (min)</label>
+                  <input
+                    id="max"
+                    type="number"
+                    min={1}
+                    value={maxDelay}
+                    onChange={(e) => setMaxDelay(e.target.value)}
+                  />
+                </div>
+              </div>
+              <label className="row" style={{ marginBottom: 14, gap: 8 }}>
+                <input
+                  type="checkbox"
+                  checked={seguir}
+                  onChange={(e) => setSeguir(e.target.checked)}
+                />
+                <span>
+                  <strong>SEGUIR PERFIL</strong>
+                  <div className="muted" style={{ fontSize: 13 }}>
+                    Segue o lead após enviar o DM
+                  </div>
+                </span>
+              </label>
+              <button
+                className="btn primary"
+                type="submit"
+                disabled={loading || !messageId}
+              >
+                {loading ? "Criando…" : "Salvar campanha"}
+              </button>
+            </form>
+          )}
         </div>
-        {items.length === 0 ? (
-          <p className="muted" style={{ padding: 22 }}>
+      ) : null}
+
+      <div className="section-head" style={{ marginTop: 8 }}>
+        <h2 style={{ margin: 0 }}>Minhas campanhas</h2>
+        <button type="button" className="action-pink" onClick={() => load()}>
+          Atualizar
+        </button>
+      </div>
+
+      {items.length === 0 ? (
+        <div className="card">
+          <p className="muted" style={{ margin: 0 }}>
             Nenhuma campanha ainda.
           </p>
-        ) : (
-          <div style={{ overflowX: "auto" }}>
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>Nome</th>
-                  <th>Status</th>
-                  <th>Progresso</th>
-                  <th>Delay</th>
-                  <th>Ações</th>
-                </tr>
-              </thead>
-              <tbody>
-                {items.map((c) => (
-                  <tr key={c.id}>
-                    <td>
-                      {c.nome}
-                      {c.seguir ? <span className="pill" style={{ marginLeft: 6 }}>seguir</span> : null}
-                    </td>
-                    <td>
-                      <span className={`pill status-${c.status}`}>
-                        {STATUS[c.status] || c.status}
-                      </span>
-                    </td>
-                    <td>
-                      {c.enviados}/{c.total}
-                      {c.erros ? (
-                        <span className="muted"> · {c.erros} erros</span>
-                      ) : null}
-                    </td>
-                    <td>
-                      {c.minDelayMin}–{c.maxDelayMin} min
-                    </td>
-                    <td>
-                      <div className="row">
-                        {(c.status === "draft" || c.status === "paused") && (
-                          <button
-                            type="button"
-                            className="btn primary small"
-                            disabled={busyId === c.id}
-                            onClick={() =>
-                              action(c.id, c.status === "draft" ? "start" : "resume")
-                            }
-                          >
-                            Play
-                          </button>
-                        )}
-                        {c.status === "running" && (
-                          <button
-                            type="button"
-                            className="btn secondary small"
-                            disabled={busyId === c.id}
-                            onClick={() => action(c.id, "pause")}
-                          >
-                            Pausar
-                          </button>
-                        )}
-                        {(c.status === "running" || c.status === "paused" || c.status === "draft") && (
-                          <button
-                            type="button"
-                            className="btn ghost small"
-                            disabled={busyId === c.id}
-                            onClick={() => action(c.id, "cancel")}
-                          >
-                            Cancelar
-                          </button>
-                        )}
-                        {c.status !== "running" && (
-                          <button
-                            type="button"
-                            className="btn danger small"
-                            disabled={busyId === c.id}
-                            onClick={() => remove(c.id)}
-                          >
-                            Excluir
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+        </div>
+      ) : (
+        <div className="campaign-list">
+          {items.map((c) => (
+            <div key={c.id} className="campaign-card">
+              <div>
+                <div style={{ fontWeight: 600, marginBottom: 8 }}>{c.nome}</div>
+                <div className="row" style={{ gap: 6, marginBottom: 8 }}>
+                  <span className={`pill status-${c.status}`}>
+                    {STATUS[c.status] || c.status}
+                  </span>
+                  {c.seguir ? <span className="pill">Follow</span> : null}
+                </div>
+                <div className="muted" style={{ fontSize: 13 }}>
+                  Delays: {c.minDelayMin}–{c.maxDelayMin} min · 1 mensagem
+                </div>
+              </div>
+              <div className="campaign-metrics">
+                <div>
+                  <div className="lbl">Total</div>
+                  <div className="val">{c.total}</div>
+                </div>
+                <div>
+                  <div className="lbl">Enviados</div>
+                  <div className="val">{c.enviados}</div>
+                </div>
+                <div>
+                  <div className="lbl">Erros</div>
+                  <div className="val">{c.erros}</div>
+                </div>
+              </div>
+              <div className="campaign-actions">
+                {(c.status === "draft" || c.status === "paused") && (
+                  <button
+                    type="button"
+                    className="btn primary small"
+                    disabled={busyId === c.id}
+                    onClick={() =>
+                      action(c.id, c.status === "draft" ? "start" : "resume")
+                    }
+                  >
+                    {c.status === "draft" ? "Iniciar" : "Retomar"}
+                  </button>
+                )}
+                {c.status === "running" && (
+                  <button
+                    type="button"
+                    className="btn secondary small"
+                    disabled={busyId === c.id}
+                    onClick={() => action(c.id, "pause")}
+                  >
+                    Pausar
+                  </button>
+                )}
+                {(c.status === "running" ||
+                  c.status === "paused" ||
+                  c.status === "draft") && (
+                  <button
+                    type="button"
+                    className="btn outline small"
+                    disabled={busyId === c.id}
+                    onClick={() => action(c.id, "cancel")}
+                  >
+                    Cancelar
+                  </button>
+                )}
+                {c.status !== "running" && (
+                  <button
+                    type="button"
+                    className="action-danger"
+                    disabled={busyId === c.id}
+                    onClick={() => remove(c.id)}
+                  >
+                    Excluir
+                  </button>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </>
   );
 }

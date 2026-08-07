@@ -3,9 +3,9 @@ import { ExtensaoClient } from "@/components/extensao-client";
 export default function ExtensaoPage() {
   return (
     <>
-      <h1 className="page-title">Extensão</h1>
+      <h1 className="page-title orange-text">Extensão</h1>
       <p className="page-sub">
-        Conecte a extensão Opera/Chrome ao seu painel Levorato Prospect.
+        Instale no Opera ou Chrome, cole a URL do painel e a API Key.
       </p>
       <ExtensaoClient />
     </>

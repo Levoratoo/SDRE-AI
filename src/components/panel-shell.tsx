@@ -9,10 +9,12 @@ const NAV = [
   { href: "/extracoes", label: "Extrações", icon: "extract" },
   { href: "/leads", label: "Base de leads", icon: "users" },
   { href: "/mensagens", label: "Mensagens DM", icon: "msg" },
+  { href: "/comentarios", label: "Comentários", icon: "comment" },
+  { href: "/stories", label: "Stories", icon: "story" },
   { href: "/campanhas", label: "Campanhas", icon: "rocket" },
   { href: "/agente", label: "Agente IA", icon: "bot" },
   { href: "/conta", label: "Minha Conta", icon: "user" },
-  { href: "/extensao", label: "Extensão", icon: "puzzle" },
+  { href: "/extensao", label: "Extensão Opera", icon: "puzzle" },
 ] as const;
 
 function NavIcon({ name }: { name: (typeof NAV)[number]["icon"] }) {
@@ -55,6 +57,20 @@ function NavIcon({ name }: { name: (typeof NAV)[number]["icon"] }) {
       return (
         <svg {...common}>
           <path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z" />
+        </svg>
+      );
+    case "comment":
+      return (
+        <svg {...common}>
+          <path d="M21 11.5a8.5 8.5 0 0 1-8.5 8.5H7l-4 3V11.5A8.5 8.5 0 1 1 21 11.5z" />
+        </svg>
+      );
+    case "story":
+      return (
+        <svg {...common}>
+          <rect x="4" y="3" width="16" height="18" rx="4" />
+          <circle cx="12" cy="10" r="3" />
+          <path d="M8 17h8" />
         </svg>
       );
     case "rocket":
@@ -131,7 +147,7 @@ export function PanelShell({ userName, userEmail, children }: Props) {
           </span>
           <div>
             <div className="brand-name">Levorato</div>
-            <div className="brand-sub">PROSPECT INSTA</div>
+            <div className="brand-sub">Prospect Insta</div>
           </div>
         </div>
 
@@ -139,9 +155,7 @@ export function PanelShell({ userName, userEmail, children }: Props) {
           {NAV.map((item) => {
             const active =
               pathname === item.href ||
-              (item.href !== "/dashboard" &&
-                pathname.startsWith(item.href + "/")) ||
-              (item.href === "/dashboard" && pathname === "/dashboard");
+              (item.href !== "/dashboard" && pathname.startsWith(item.href));
             return (
               <Link
                 key={item.href}
@@ -190,7 +204,26 @@ export function PanelShell({ userName, userEmail, children }: Props) {
         </div>
       </aside>
 
-      <main className="main">{children}</main>
+      <div className="content-wrap">
+        <div className="topbar">
+          <div className="topbar-left">
+            <Link className="btn secondary small" href="/extensao">
+              ▶ Ver tutorial
+            </Link>
+          </div>
+          <div className="topbar-right">
+            <div className="theme-toggle" aria-label="Tema">
+              <button type="button" className="active">
+                ☾ Dark
+              </button>
+              <button type="button" disabled title="Em breve">
+                ☀ Light
+              </button>
+            </div>
+          </div>
+        </div>
+        <main className="main">{children}</main>
+      </div>
     </div>
   );
 }

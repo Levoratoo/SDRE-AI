@@ -57,13 +57,10 @@ export function MensagensClient() {
   return (
     <>
       <div className="card">
-        <h2>Nova mensagem (DM)</h2>
-        <p className="muted" style={{ marginTop: 0 }}>
-          Placeholders: {"{primeiro_nome}"}, {"{nome}"}, {"{username}"}
-        </p>
+        <h2>Nova mensagem</h2>
         <form onSubmit={onSubmit}>
           <div className="field">
-            <label htmlFor="titulo">Título</label>
+            <label htmlFor="titulo">Título (uso interno)</label>
             <input
               id="titulo"
               value={titulo}
@@ -74,15 +71,20 @@ export function MensagensClient() {
             />
           </div>
           <div className="field">
-            <label htmlFor="texto">Texto</label>
+            <label htmlFor="texto">Mensagem</label>
             <textarea
               id="texto"
-              rows={4}
+              rows={5}
               value={texto}
               onChange={(e) => setTexto(e.target.value)}
               required
+              maxLength={900}
             />
           </div>
+          <div className="char-count">{texto.length} / 900</div>
+          <p className="muted" style={{ marginTop: 0 }}>
+            Placeholders: {"{primeiro_nome}"}, {"{nome}"}, {"{username}"}
+          </p>
           {err ? <p className="err">{err}</p> : null}
           <button className="btn primary" type="submit" disabled={loading}>
             {loading ? "Salvando…" : "Salvar"}
@@ -90,34 +92,31 @@ export function MensagensClient() {
         </form>
       </div>
 
-      <div className="card" style={{ marginTop: 16 }}>
+      <div className="card">
         <h2>Minhas mensagens</h2>
         {items.length === 0 ? (
           <p className="muted">Nenhuma mensagem ainda.</p>
         ) : (
-          <div style={{ display: "grid", gap: 12 }}>
-            {items.map((m) => (
-              <div
-                key={m.id}
-                style={{
-                  border: "1px solid var(--line)",
-                  borderRadius: 8,
-                  padding: 12,
-                }}
-              >
-                <div className="row" style={{ justifyContent: "space-between" }}>
-                  <strong>{m.titulo}</strong>
-                  <button
-                    type="button"
-                    className="btn danger small"
-                    onClick={() => remove(m.id)}
-                  >
-                    Excluir
-                  </button>
+          <div className="msg-list">
+            {items.map((m, i) => (
+              <div key={m.id} className="msg-item">
+                <div className="msg-item-head">
+                  <div>
+                    <div className="msg-title">
+                      {i + 1}. {m.titulo}
+                    </div>
+                    <p className="msg-body">{m.texto}</p>
+                  </div>
+                  <div className="row" style={{ gap: 12 }}>
+                    <button
+                      type="button"
+                      className="action-danger"
+                      onClick={() => remove(m.id)}
+                    >
+                      Excluir
+                    </button>
+                  </div>
                 </div>
-                <p className="muted" style={{ marginBottom: 0, whiteSpace: "pre-wrap" }}>
-                  {m.texto}
-                </p>
               </div>
             ))}
           </div>

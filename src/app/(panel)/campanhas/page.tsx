@@ -11,13 +11,5 @@ export default async function CampanhasPage() {
     .from(leads)
     .where(eq(leads.userId, session.user.id));
 
-  return (
-    <>
-      <h1 className="page-title">Campanhas</h1>
-      <p className="page-sub">
-        Crie a fila, aperte Play — o worker na VPS dispara 24/7.
-      </p>
-      <CampanhasClient leadsCount={leadsCount?.value ?? 0} />
-    </>
-  );
+  return <CampanhasClient leadsCount={leadsCount?.value ?? 0} />;
 }

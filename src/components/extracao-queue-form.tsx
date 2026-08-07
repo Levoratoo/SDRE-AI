@@ -4,9 +4,24 @@ import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 
 const SPEED = {
-  turbo: { label: "Turbo", delayMinMs: 500, delayMaxMs: 1100, hint: "~2–3x mais rápido; risco de rate-limit" },
-  rapido: { label: "Rápido", delayMinMs: 700, delayMaxMs: 1600, hint: "padrão recomendado" },
-  seguro: { label: "Seguro", delayMinMs: 2000, delayMaxMs: 4500, hint: "mais lento, menos bloqueio" },
+  turbo: {
+    label: "Turbo",
+    delayMinMs: 500,
+    delayMaxMs: 1100,
+    hint: "~2–3x mais rápido; risco de rate-limit",
+  },
+  rapido: {
+    label: "Rápido",
+    delayMinMs: 700,
+    delayMaxMs: 1600,
+    hint: "padrão recomendado",
+  },
+  seguro: {
+    label: "Seguro",
+    delayMinMs: 2000,
+    delayMaxMs: 4500,
+    hint: "mais lento, menos bloqueio",
+  },
 } as const;
 
 type SpeedKey = keyof typeof SPEED;
@@ -43,7 +58,7 @@ export function ExtracaoQueueForm() {
       if (!j.ok) throw new Error(j.erro || "Falha ao enfileirar");
       setMsg(
         j.aviso ||
-          `Fila criada para @${j.extraction.perfil_alvo_username}. A extensão inicia sozinha.`,
+          `Fila criada para @${j.extraction.perfil_alvo_username}.`,
       );
       setUsername("");
       setNome("");
@@ -58,10 +73,9 @@ export function ExtracaoQueueForm() {
 
   return (
     <div className="card" style={{ marginBottom: 16 }}>
-      <h2>Extrair seguidores</h2>
+      <h2>Nova extração</h2>
       <p className="muted" style={{ marginTop: 0 }}>
-        Cole o @ do Instagram. Worker na VPS ou extensão no Opera processam a
-        fila.
+        Cole o @ do Instagram. Worker na VPS ou extensão processam a fila.
       </p>
       <form onSubmit={onSubmit}>
         <div className="field">
@@ -101,7 +115,7 @@ export function ExtracaoQueueForm() {
               <button
                 key={key}
                 type="button"
-                className={speed === key ? "btn primary small" : "btn ghost small"}
+                className={speed === key ? "btn primary small" : "btn outline small"}
                 onClick={() => setSpeed(key)}
               >
                 {SPEED[key].label}
@@ -109,8 +123,7 @@ export function ExtracaoQueueForm() {
             ))}
           </div>
           <p className="muted" style={{ margin: "8px 0 0", fontSize: 13 }}>
-            {SPEED[speed].hint} ({SPEED[speed].delayMinMs}–{SPEED[speed].delayMaxMs}{" "}
-            ms entre páginas de ~50 leads)
+            {SPEED[speed].hint}
           </p>
         </div>
         {msg ? <p className="ok">{msg}</p> : null}
