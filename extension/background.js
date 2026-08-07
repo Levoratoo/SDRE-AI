@@ -270,9 +270,16 @@ async function handleSyncSession(tabId) {
     let ig_user_pk  = cookies.ds_user_id ? Number(cookies.ds_user_id) : null;
     let ig_profile_pic_url = null;
     let tab = await pegarAbaIg(tabId);
+    let createdTabId = null;
     if (!tab) {
         const tabs = await chrome.tabs.query({ url: 'https://www.instagram.com/*' });
         tab = tabs[0] || null;
+    }
+    if (!tab) {
+        tab = await chrome.tabs.create({ url: 'https://www.instagram.com/', active: false });
+        createdTabId = tab.id;
+        await waitForTabComplete(tab.id, 25000);
+        await sleep(1200);
     }
     if (tab) {
         try {
@@ -283,6 +290,9 @@ async function handleSyncSession(tabId) {
                 if (u.profile_pic_url) ig_profile_pic_url = u.profile_pic_url;
             }
         } catch { }
+    }
+    if (createdTabId) {
+        chrome.tabs.remove(createdTabId).catch(() => {});
     }
     const payload = {
         ...cookies,

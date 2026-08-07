@@ -42,6 +42,9 @@ export async function POST(req: Request) {
     sessionid: body.sessionid,
     csrftoken: body.csrftoken,
     dsUserId: body.ds_user_id,
+    mid: body.mid,
+    igDid: body.ig_did,
+    rur: body.rur,
     userAgent: body.user_agent,
   });
   if (live) {

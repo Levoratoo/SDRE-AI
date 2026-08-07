@@ -126,6 +126,9 @@ export async function POST(req: Request) {
     sessionid: values.sessionid,
     csrftoken: values.csrftoken,
     dsUserId: values.dsUserId,
+    mid: values.mid,
+    igDid: values.igDid,
+    rur: values.rur,
     userAgent: values.userAgent,
   });
   if (live) {

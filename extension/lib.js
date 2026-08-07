@@ -386,24 +386,43 @@ export async function fetchCurrentIgUserViaTab(tabId) {
                     return m ? decodeURIComponent(m[2]) : '';
                 };
                 const csrfToken = getCookie('csrftoken');
+                const dsUserId = getCookie('ds_user_id');
+                const apiHeaders = {
+                    'X-IG-App-ID': '936619743392459',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRFToken': csrfToken,
+                };
+
+                const parseUser = (user) => ({
+                    username: user?.username || null,
+                    pk: Number(user?.pk || user?.id) || null,
+                    profile_pic_url:
+                        user?.profile_pic_url_hd ||
+                        user?.profile_pic_url ||
+                        null,
+                });
+
                 const r = await fetch('/api/v1/accounts/current_user/?edit=true', {
-                    headers: {
-                        'X-IG-App-ID': '936619743392459',
-                        'X-Requested-With': 'XMLHttpRequest',
-                        'X-CSRFToken': csrfToken,
-                    },
+                    headers: apiHeaders,
                     credentials: 'include',
                 });
-                if (!r.ok) return { __error: 'HTTP ' + r.status };
-                const j = await r.json();
-                return {
-                    username: j?.user?.username,
-                    pk: Number(j?.user?.pk) || null,
-                    profile_pic_url:
-                        j?.user?.profile_pic_url_hd ||
-                        j?.user?.profile_pic_url ||
-                        null,
-                };
+                if (r.ok) {
+                    const j = await r.json();
+                    if (j?.user?.username) return parseUser(j.user);
+                }
+
+                if (dsUserId) {
+                    const r2 = await fetch(
+                        '/api/v1/users/' + encodeURIComponent(dsUserId) + '/info/',
+                        { headers: apiHeaders, credentials: 'include' },
+                    );
+                    if (r2.ok) {
+                        const j2 = await r2.json();
+                        if (j2?.user?.username) return parseUser(j2.user);
+                    }
+                }
+
+                return { __error: 'perfil_nao_encontrado' };
             } catch (e) { return { __error: e.message }; }
         }
     });
