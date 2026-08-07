@@ -34,8 +34,8 @@ export default async function ExtracoesPage() {
         <div>
           <h1 className="page-title gradient-text">Extrações</h1>
           <p className="page-sub">
-            Enfileire um @ aqui no painel e acompanhe capturados/progresso ao
-            vivo. A execução roda na VPS 24/7 — sem precisar ficar na extensão.
+            Enfileire um @ aqui e acompanhe ao vivo. A VPS executa 24/7. Sessão
+            IG em Minha Conta (colar sessionid) — extensão não é obrigatória.
           </p>
         </div>
         <div className="page-actions">
