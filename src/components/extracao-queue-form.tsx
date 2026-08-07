@@ -58,11 +58,12 @@ export function ExtracaoQueueForm() {
       if (!j.ok) throw new Error(j.erro || "Falha ao enfileirar");
       setMsg(
         j.aviso ||
-          `Fila criada para @${j.extraction.perfil_alvo_username}.`,
+          `Fila criada para @${j.extraction.perfil_alvo_username}. Acompanhe ao vivo na tabela abaixo.`,
       );
       setUsername("");
       setNome("");
       setLimite("");
+      window.dispatchEvent(new Event("extracao-enfileirada"));
       router.refresh();
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Erro");
@@ -75,8 +76,8 @@ export function ExtracaoQueueForm() {
     <div className="card" style={{ marginBottom: 16 }}>
       <h2>Nova extração</h2>
       <p className="muted" style={{ marginTop: 0 }}>
-        Cole o @ do Instagram. O worker na VPS processa a fila 24/7 (PC pode
-        ficar desligado). Sincronize a sessão na extensão uma vez.
+        Cole o @ aqui no painel — a fila roda na VPS e o progresso atualiza ao
+        vivo abaixo. Extensão só para sincronizar a sessão IG uma vez.
       </p>
       <form onSubmit={onSubmit}>
         <div className="field">

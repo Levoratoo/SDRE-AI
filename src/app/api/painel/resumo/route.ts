@@ -1,13 +1,15 @@
 import { and, count, desc, eq, inArray } from "drizzle-orm";
-import { DashboardLive } from "@/components/dashboard-live";
+import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { campaigns, extractions, leads } from "@/db/schema";
-import { requireSession } from "@/lib/session";
+import { getSession } from "@/lib/session";
 
-export default async function DashboardPage() {
-  const session = await requireSession();
+export async function GET() {
+  const session = await getSession();
+  if (!session) {
+    return NextResponse.json({ ok: false, erro: "Não autenticado" }, { status: 401 });
+  }
   const userId = session.user.id;
-  const firstName = (session.user.name || "olá").split(" ")[0];
 
   const [leadsCount] = await db
     .select({ value: count() })
@@ -47,22 +49,20 @@ export default async function DashboardPage() {
     .orderBy(desc(extractions.iniciadoEm))
     .limit(8);
 
-  return (
-    <DashboardLive
-      firstName={firstName}
-      initialStats={{
-        extracoes: Number(extrCount?.value ?? 0),
-        emAndamento: Number(runningExtr?.value ?? 0),
-        campanhasRodando: Number(runningCamps?.value ?? 0),
-        leads: Number(leadsCount?.value ?? 0),
-      }}
-      initialLatest={latest.map((r) => ({
-        id: r.id,
-        perfilAlvoUsername: r.perfilAlvoUsername,
-        capturados: r.capturados,
-        status: r.status,
-        iniciadoEm: r.iniciadoEm?.toISOString() ?? null,
-      }))}
-    />
-  );
+  return NextResponse.json({
+    ok: true,
+    stats: {
+      extracoes: Number(extrCount?.value ?? 0),
+      emAndamento: Number(runningExtr?.value ?? 0),
+      campanhasRodando: Number(runningCamps?.value ?? 0),
+      leads: Number(leadsCount?.value ?? 0),
+    },
+    ultimasExtracoes: latest.map((r) => ({
+      id: r.id,
+      perfilAlvoUsername: r.perfilAlvoUsername,
+      capturados: r.capturados,
+      status: r.status,
+      iniciadoEm: r.iniciadoEm?.toISOString() ?? null,
+    })),
+  });
 }

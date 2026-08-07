@@ -83,13 +83,19 @@ export function CampanhasClient({ leadsCount }: { leadsCount: number }) {
     if (camps.ok) setItems(camps.campanhas);
   }, []);
 
+  const hasRunning = items.some((c) => c.status === "running");
+
   useEffect(() => {
     load().catch(() => setErr("Falha ao carregar"));
+  }, [load]);
+
+  useEffect(() => {
+    const ms = hasRunning ? 4000 : 12000;
     const t = setInterval(() => {
       load().catch(() => {});
-    }, 10000);
+    }, ms);
     return () => clearInterval(t);
-  }, [load]);
+  }, [load, hasRunning]);
 
   function toggleId(
     id: string,
@@ -183,8 +189,8 @@ export function CampanhasClient({ leadsCount }: { leadsCount: number }) {
         <div>
           <h1 className="page-title gradient-text">Campanhas de Direct</h1>
           <p className="page-sub">
-            Crie a fila e aperte Play — o worker na VPS dispara 24/7 (PC pode
-            ficar desligado).
+            Crie a fila e aperte Play aqui no painel. Acompanhe enviados/erros
+            ao vivo — a VPS dispara 24/7 (sem ficar na extensão).
           </p>
         </div>
         <div className="page-actions">

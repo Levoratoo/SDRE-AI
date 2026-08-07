@@ -7,9 +7,11 @@ import { useState } from "react";
 export function ExtracaoActions({
   id,
   canDelete,
+  onDeleted,
 }: {
   id: string;
   canDelete: boolean;
+  onDeleted?: () => void;
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
@@ -21,6 +23,7 @@ export function ExtracaoActions({
       const r = await fetch(`/api/extracoes/${id}`, { method: "DELETE" });
       const j = await r.json();
       if (!j.ok) throw new Error(j.erro || "Erro");
+      onDeleted?.();
       router.refresh();
     } catch (e) {
       alert(e instanceof Error ? e.message : "Erro");
