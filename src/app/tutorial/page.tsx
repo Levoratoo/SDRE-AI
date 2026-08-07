@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { requireSession } from "@/lib/session";
-import { getTutorial, tutorialHasVideo } from "@/lib/tutorials";
+import { getTutorial } from "@/lib/tutorials";
 
 export default async function TutorialPage({
   searchParams,
@@ -10,7 +10,6 @@ export default async function TutorialPage({
   await requireSession();
   const { p } = await searchParams;
   const tutorial = getTutorial(p);
-  const hasVideo = tutorialHasVideo(tutorial);
 
   // Preferência: MP4 próprio (sem links/marca de terceiros na tela).
   const localSrc = tutorial.videoSrc;
@@ -68,8 +67,6 @@ export default async function TutorialPage({
           <Link href={tutorial.backHref}>Voltar ao painel</Link>
         </div>
       )}
-
-      {!hasVideo ? null : null}
     </div>
   );
 }
