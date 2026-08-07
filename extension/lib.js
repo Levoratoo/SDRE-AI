@@ -18,6 +18,29 @@ export async function setConfig(cfg) {
     await chrome.storage.local.set({ config: cfg });
 }
 
+function waitForTabComplete(tabId, timeoutMs = 22000) {
+    return new Promise((resolve) => {
+        const t0 = Date.now();
+        const timer = setInterval(async () => {
+            if (Date.now() - t0 > timeoutMs) {
+                clearInterval(timer);
+                resolve(false);
+                return;
+            }
+            try {
+                const t = await chrome.tabs.get(tabId);
+                if (t?.status === 'complete') {
+                    clearInterval(timer);
+                    resolve(true);
+                }
+            } catch {
+                clearInterval(timer);
+                resolve(false);
+            }
+        }, 350);
+    });
+}
+
 // -----------------------------
 // PANEL API
 // -----------------------------
@@ -69,6 +92,157 @@ export async function testPanel(panelUrl, apiKey) {
         email: j.email || null,
         id:    j.id    || null,
     };
+}
+
+/** Lê API Key da aba do painel já logada (mesma conta que Minha Conta). */
+export async function autoConfigFromPanelTab() {
+    const cfg = await getConfig();
+    const patterns = new Set([
+        'https://*.vercel.app/*',
+        'http://localhost:3000/*',
+        'http://127.0.0.1:3000/*',
+    ]);
+    if (cfg.panelUrl) {
+        try { patterns.add(new URL(cfg.panelUrl).origin + '/*'); } catch { /* ignore */ }
+    }
+
+    const tabs = [];
+    const seen = new Set();
+    for (const pattern of patterns) {
+        const found = await chrome.tabs.query({ url: pattern });
+        for (const t of found) {
+            if (t.id && !seen.has(t.id)) {
+                seen.add(t.id);
+                tabs.push(t);
+            }
+        }
+    }
+
+    if (tabs.length === 0) {
+        const base = (cfg.panelUrl || 'https://sdre-ai.vercel.app').replace(/\/+$/, '');
+        const tab = await chrome.tabs.create({ url: base + '/conta', active: false });
+        await waitForTabComplete(tab.id, 22000);
+        tabs.push(tab);
+    }
+
+    for (const tab of tabs) {
+        try {
+            const [res] = await chrome.scripting.executeScript({
+                target: { tabId: tab.id },
+                func: async () => {
+                    const origin = location.origin;
+                    const metaRes = await fetch('/api/extensao/api-key', {
+                        credentials: 'include',
+                    });
+                    const meta = await metaRes.json().catch(() => ({}));
+                    let apiKey = null;
+
+                    if (meta?.ok && meta.key?.canReveal) {
+                        const revealRes = await fetch('/api/extensao/api-key?reveal=1', {
+                            credentials: 'include',
+                        });
+                        const reveal = await revealRes.json().catch(() => ({}));
+                        if (reveal?.ok && reveal.apiKey) apiKey = reveal.apiKey;
+                    }
+
+                    if (!apiKey && meta?.ok && !meta.key?.hasKey) {
+                        const genRes = await fetch('/api/extensao/api-key', {
+                            method: 'POST',
+                            credentials: 'include',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: '{}',
+                        });
+                        const gen = await genRes.json().catch(() => ({}));
+                        if (gen?.ok && gen.apiKey) apiKey = gen.apiKey;
+                    }
+
+                    if (!apiKey) return null;
+                    return { panelUrl: origin, apiKey };
+                },
+            });
+            const data = res?.result;
+            if (data?.panelUrl && data?.apiKey) {
+                await setConfig({ panelUrl: data.panelUrl, apiKey: data.apiKey });
+                return data;
+            }
+        } catch { /* aba sem permissão ou não é painel */ }
+    }
+    return null;
+}
+
+function igCookiesToHeader(cookies) {
+    const parts = [];
+    if (cookies.sessionid) parts.push('sessionid=' + cookies.sessionid);
+    if (cookies.csrftoken) parts.push('csrftoken=' + cookies.csrftoken);
+    if (cookies.ds_user_id) parts.push('ds_user_id=' + cookies.ds_user_id);
+    if (cookies.mid) parts.push('mid=' + cookies.mid);
+    if (cookies.ig_did) parts.push('ig_did=' + cookies.ig_did);
+    if (cookies.rur) parts.push('rur=' + cookies.rur);
+    return parts.join('; ');
+}
+
+/** Envia sessão IG ao painel via cookie de login (Minha Conta). */
+export async function pushSessionToPanelBrowser(payload) {
+    const cfg = await getConfig();
+    const patterns = new Set([
+        'https://*.vercel.app/*',
+        'http://localhost:3000/*',
+        'http://127.0.0.1:3000/*',
+    ]);
+    if (cfg.panelUrl) {
+        try { patterns.add(new URL(cfg.panelUrl).origin + '/*'); } catch { /* ignore */ }
+    }
+
+    const tabs = [];
+    const seen = new Set();
+    for (const pattern of patterns) {
+        const found = await chrome.tabs.query({ url: pattern });
+        for (const t of found) {
+            if (t.id && !seen.has(t.id)) {
+                seen.add(t.id);
+                tabs.push(t);
+            }
+        }
+    }
+
+    if (tabs.length === 0) {
+        const base = (cfg.panelUrl || 'https://sdre-ai.vercel.app').replace(/\/+$/, '');
+        const tab = await chrome.tabs.create({ url: base + '/conta', active: false });
+        await waitForTabComplete(tab.id, 22000);
+        tabs.push(tab);
+    }
+
+    const body = {
+        cookies: igCookiesToHeader(payload),
+        username: payload.ig_username || undefined,
+        userAgent: payload.user_agent || undefined,
+        ig_profile_pic_url: payload.ig_profile_pic_url || undefined,
+    };
+
+    for (const tab of tabs) {
+        try {
+            const [res] = await chrome.scripting.executeScript({
+                target: { tabId: tab.id },
+                args: [body],
+                func: async (postBody) => {
+                    const r = await fetch('/api/sessao/ig', {
+                        method: 'POST',
+                        credentials: 'include',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(postBody),
+                    });
+                    const j = await r.json().catch(() => ({ ok: false, erro: 'Resposta inválida' }));
+                    if (j?.ok) {
+                        document.dispatchEvent(new CustomEvent('levorato-ig-session-updated'));
+                    }
+                    return j;
+                },
+            });
+            const j = res?.result;
+            if (j?.ok) return j;
+        } catch { /* ignore */ }
+    }
+    return null;
 }
 
 // -----------------------------

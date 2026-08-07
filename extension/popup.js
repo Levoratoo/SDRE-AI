@@ -6,7 +6,8 @@
 
 import {
     getConfig, testPanel, extractIgUsername,
-    getIgCookies, fetchIgProfileInfoViaTab
+    getIgCookies, fetchIgProfileInfoViaTab,
+    autoConfigFromPanelTab,
 } from './lib.js';
 
 const $ = (id) => document.getElementById(id);
@@ -109,6 +110,8 @@ async function savePreferencias(delayMin, delayMax) {
 
 async function refresh() {
     stopPolling();
+
+    await autoConfigFromPanelTab().catch(() => {});
 
     const cfg = await getConfig();
     if (!cfg.panelUrl || !cfg.apiKey) {
@@ -292,8 +295,13 @@ async function onSync() {
         const r = await sendBg({ type: 'sync-session', tabId });
         if (!r.ok) throw new Error(r.erro);
         const info = r.info || {};
-        toast('Sessão sincronizada' + (info.ig_username ? ' (@' + info.ig_username + ')' : ''), 'ok');
-        $('sessInfo').textContent = 'Sincronizada' + (info.ig_username ? ' com @' + info.ig_username : '') + '.';
+        const handle = info.ig_username ? '@' + info.ig_username : '';
+        toast(
+            'Sessão enviada ao painel' + (handle ? ' (' + handle + ')' : ''),
+            'ok',
+        );
+        $('sessInfo').textContent =
+            'Enviada ao painel' + (handle ? ' — ' + handle : '') + '.';
     } catch (e) {
         toast(e.message, 'err');
     } finally {

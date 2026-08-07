@@ -94,6 +94,7 @@ export async function POST(req: Request) {
     cookies?: string;
     username?: string;
     userAgent?: string;
+    ig_profile_pic_url?: string;
   };
 
   const parsed = parseIgSessionInput(body.cookies || "", {
@@ -134,7 +135,14 @@ export async function POST(req: Request) {
   if (live) {
     values.igUsername = live.username;
     values.igUserPk = live.pk;
+  } else if (body.username) {
+    values.igUsername = body.username.replace(/^@/, "").toLowerCase();
   }
+
+  const profilePicUrl =
+    live?.profilePicUrl ||
+    body.ig_profile_pic_url ||
+    null;
 
   const [existing] = await db
     .select({ id: igSessions.id })
@@ -148,7 +156,7 @@ export async function POST(req: Request) {
       .update(igSessions)
       .set({
         ...values,
-        igProfilePicUrl: live?.profilePicUrl ?? null,
+        igProfilePicUrl: profilePicUrl,
       })
       .where(eq(igSessions.userId, session.user.id))
       .returning();
@@ -158,7 +166,7 @@ export async function POST(req: Request) {
       .values({
         userId: session.user.id,
         ...values,
-        igProfilePicUrl: live?.profilePicUrl ?? null,
+        igProfilePicUrl: profilePicUrl,
       })
       .returning();
   }

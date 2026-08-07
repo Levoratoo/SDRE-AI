@@ -71,6 +71,13 @@ export function IgSessionClient() {
   }, [load]);
 
   useEffect(() => {
+    const onUpdated = () => void load();
+    document.addEventListener("levorato-ig-session-updated", onUpdated);
+    return () =>
+      document.removeEventListener("levorato-ig-session-updated", onUpdated);
+  }, [load]);
+
+  useEffect(() => {
     let cancelled = false;
     const check = async () => {
       const ok = await pingExtension();

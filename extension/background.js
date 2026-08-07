@@ -10,7 +10,9 @@ import {
     getConfig, panelCall, getIgCookies,
     findInstagramTab,
     fetchFollowersPageViaTab, fetchCurrentIgUserViaTab,
-    fetchIgProfileInfoViaTab
+    fetchIgProfileInfoViaTab,
+    autoConfigFromPanelTab,
+    pushSessionToPanelBrowser,
 } from './lib.js';
 
 const STORAGE_EXT  = 'extractionState';
@@ -264,6 +266,8 @@ async function handleCancelExt() {
 }
 
 async function handleSyncSession(tabId) {
+    await autoConfigFromPanelTab();
+
     const cookies = await getIgCookies();
     if (!cookies.sessionid) throw new Error('Não logado no Instagram — abra www.instagram.com e faça login primeiro.');
     let ig_username = null;
@@ -301,11 +305,35 @@ async function handleSyncSession(tabId) {
         ig_user_pk,
         ig_profile_pic_url,
     };
-    const r = await panelCall('/api/insta/session_sync.php', { method: 'POST', body: payload });
+
+    let apiResult = null;
+    try {
+        apiResult = await panelCall('/api/insta/session_sync.php', { method: 'POST', body: payload });
+    } catch (e) {
+        log('session_sync (API key):', e.message || e);
+    }
+
+    const browserResult = await pushSessionToPanelBrowser(payload);
+
+    if (!apiResult && !browserResult?.ok) {
+        throw new Error(
+            browserResult?.erro ||
+                'Abra o painel logado (sdre-ai.vercel.app) em uma aba e tente novamente.',
+        );
+    }
+
     return {
-        ig_username: r.ig_username || ig_username,
-        ig_user_pk: r.ig_user_pk || ig_user_pk,
-        ig_profile_pic_url: r.ig_profile_pic_url || ig_profile_pic_url,
+        ig_username:
+            apiResult?.ig_username ||
+            browserResult?.sessao?.igUsername ||
+            browserResult?.igUsername ||
+            ig_username,
+        ig_user_pk: apiResult?.ig_user_pk || ig_user_pk,
+        ig_profile_pic_url:
+            apiResult?.ig_profile_pic_url ||
+            browserResult?.sessao?.igProfilePicUrl ||
+            ig_profile_pic_url,
+        panelUpdated: Boolean(browserResult?.ok),
     };
 }
 
