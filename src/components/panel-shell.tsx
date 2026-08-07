@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
+import { tutorialHrefForPath } from "@/lib/tutorials";
 
 const NAV = [
   { href: "/dashboard", label: "Início", icon: "home" },
@@ -207,8 +208,17 @@ export function PanelShell({ userName, userEmail, children }: Props) {
       <div className="content-wrap">
         <div className="topbar">
           <div className="topbar-left">
-            <Link className="btn secondary small" href="/extensao">
-              ▶ Ver tutorial
+            <Link
+              className="btn-tutorial"
+              href={tutorialHrefForPath(pathname)}
+              target="_blank"
+              rel="noopener"
+              title="Assistir tutorial dessa página"
+            >
+              <span className="btn-tutorial-icon" aria-hidden>
+                ▶
+              </span>
+              Ver tutorial
             </Link>
           </div>
           <div className="topbar-right">

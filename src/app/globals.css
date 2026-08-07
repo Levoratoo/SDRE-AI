@@ -253,6 +253,7 @@ a {
 
 .content-wrap {
   min-width: 0;
+  width: 100%;
   display: flex;
   flex-direction: column;
 }
@@ -270,6 +271,205 @@ a {
   display: flex;
   align-items: center;
   gap: 10px;
+}
+
+.btn-tutorial {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px 8px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: #10111c;
+  color: #fff;
+  font: inherit;
+  font-size: 0.88rem;
+  text-decoration: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.btn-tutorial:hover {
+  border-color: rgba(243, 27, 153, 0.45);
+  box-shadow: 0 0 18px rgba(243, 27, 153, 0.18);
+}
+
+.btn-tutorial-icon {
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  font-size: 0.62rem;
+  color: #fff;
+  background: var(--grad-btn);
+  box-shadow: 0 4px 12px rgba(243, 27, 153, 0.35);
+  padding-left: 1px;
+}
+
+/* —— Tutorial page —— */
+.tut-page {
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--text);
+  position: relative;
+  overflow-x: hidden;
+}
+
+.tut-page::before,
+.tut-page::after {
+  content: "";
+  position: fixed;
+  border-radius: 50%;
+  filter: blur(120px);
+  opacity: 0.22;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.tut-page::before {
+  width: 480px;
+  height: 480px;
+  top: -140px;
+  left: -140px;
+  background: radial-gradient(circle, #ec4899 0%, transparent 70%);
+}
+
+.tut-page::after {
+  width: 560px;
+  height: 560px;
+  bottom: -180px;
+  right: -160px;
+  background: radial-gradient(circle, #a855f7 0%, transparent 70%);
+}
+
+.tut-topbar {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding: 20px 32px;
+  border-bottom: 1px solid var(--line);
+  background: rgba(6, 7, 15, 0.72);
+  backdrop-filter: blur(12px);
+}
+
+.tut-title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.tut-title-pre {
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-weight: 400;
+}
+
+.tut-title-name {
+  background: var(--grad);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.tut-btn-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--muted);
+  text-decoration: none;
+  font-size: 0.85rem;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.tut-btn-back:hover {
+  color: var(--text);
+  border-color: rgba(236, 72, 153, 0.5);
+}
+
+.tut-wrap {
+  position: relative;
+  z-index: 1;
+  padding: 32px;
+  display: flex;
+  justify-content: center;
+}
+
+.tut-player {
+  width: 100%;
+  max-width: 960px;
+  aspect-ratio: 16 / 9;
+  background: var(--bg-elev);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.55), 0 0 40px rgba(236, 72, 153, 0.1);
+}
+
+.tut-player iframe {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  display: block;
+}
+
+.tut-empty {
+  position: relative;
+  z-index: 1;
+  max-width: 480px;
+  margin: 80px auto;
+  text-align: center;
+  background: var(--bg-elev);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 48px 32px;
+}
+
+.tut-empty-icon {
+  width: 48px;
+  height: 48px;
+  margin: 0 auto 16px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  background: var(--grad-btn);
+  color: #fff;
+  font-size: 0.9rem;
+}
+
+.tut-empty h2 {
+  margin: 0 0 12px;
+  font-size: 1.25rem;
+  background: var(--grad);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.tut-empty p {
+  color: var(--muted);
+  font-size: 0.92rem;
+  line-height: 1.6;
+  margin: 0 0 24px;
+}
+
+.tut-empty a {
+  display: inline-block;
+  padding: 12px 24px;
+  border-radius: 10px;
+  background: var(--grad-btn);
+  color: #fff;
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 0.9rem;
 }
 
 .theme-toggle {
@@ -304,8 +504,21 @@ a {
 
 .main {
   padding: 22px 28px 64px;
-  max-width: 1200px;
+  max-width: none;
   width: 100%;
+  box-sizing: border-box;
+}
+
+.card,
+.table-card,
+.stats,
+.campaign-list,
+.msg-list,
+.filter-bar,
+.page-head,
+.dash-top {
+  width: 100%;
+  max-width: none;
 }
 
 .dash-top,

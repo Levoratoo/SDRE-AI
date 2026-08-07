@@ -63,7 +63,12 @@ export default async function DashboardPage() {
           </p>
         </div>
         <div className="dash-actions">
-          <Link className="btn secondary small" href="/extensao">
+          <Link
+            className="btn secondary small"
+            href="/tutorial?p=dashboard"
+            target="_blank"
+            rel="noopener"
+          >
             Ver tutorial
           </Link>
           <Link className="btn primary" href="/extracoes">
