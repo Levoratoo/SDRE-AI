@@ -136,7 +136,10 @@ fi
 set -e
 cd /opt/levorato-prospect
 docker compose down || true
-docker compose up -d --build
+# BuildKit snapshot cache às vezes corrompe neste host — classic + no-cache é estável
+export DOCKER_BUILDKIT=0
+docker compose build --no-cache
+docker compose up -d
 docker compose ps
 sleep 5
 docker compose logs --tail=80
