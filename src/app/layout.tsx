@@ -1,15 +1,15 @@
 import type { Metadata } from "next";
-import { Fraunces, Manrope } from "next/font/google";
+import { Outfit, Sora } from "next/font/google";
 import "./globals.css";
 
-const fraunces = Fraunces({
+const outfit = Outfit({
   subsets: ["latin"],
-  variable: "--font-fraunces",
+  variable: "--font-outfit",
 });
 
-const manrope = Manrope({
+const sora = Sora({
   subsets: ["latin"],
-  variable: "--font-manrope",
+  variable: "--font-sora",
 });
 
 export const metadata: Metadata = {
@@ -24,8 +24,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="pt-BR">
-      <body className={`${fraunces.variable} ${manrope.variable}`}>
-        <style>{`:root{--font-display:var(--font-fraunces);--font-body:var(--font-manrope)}`}</style>
+      <body className={`${outfit.variable} ${sora.variable}`}>
         {children}
       </body>
     </html>

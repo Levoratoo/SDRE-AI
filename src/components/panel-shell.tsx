@@ -37,8 +37,8 @@ export function PanelShell({ userName, userEmail, children }: Props) {
         <div className="brand">
           <span className="brand-mark">LP</span>
           <div>
-            <div className="brand-name">Levorato Prospect</div>
-            <div className="brand-sub">Prospecção Instagram</div>
+            <div className="brand-name">Levorato</div>
+            <div className="brand-sub">Prospect · Instagram</div>
           </div>
         </div>
 
